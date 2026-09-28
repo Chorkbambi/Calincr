@@ -16,3 +16,4 @@ export * from './serialization';
 export * from './quest';
 export * from './achievements';
 export * from './recap';
+export * from './backup';

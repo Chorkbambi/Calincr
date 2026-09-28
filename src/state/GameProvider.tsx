@@ -6,15 +6,19 @@ import {
   applyQuestReward,
   applyWork,
   buyWeapon,
+  checkAchievements,
+  createBackup,
   createDailyQuest,
   createInitialState,
   DEFAULT_SETTINGS,
   equipWeapon,
+  parseBackup,
   progressQuest,
   QUEST,
   questNeedsRefresh,
   recordWork,
   toDayKey,
+  type BackupError,
   type DailyQuest,
   type ExerciseId,
   type GameState,
@@ -25,10 +29,14 @@ import {
   type WorkInput,
   type WorkOutcome,
 } from '../game';
+import { restoreCalibrations, type Calibrations } from '../pose/calibration';
+import type { TrackerConfig } from '../pose/trackers';
 import { GameRepository } from '../storage/repository';
 
-/** Outcome of some work, plus the daily quest reward when this work completed it. */
-export type WorkResult = WorkOutcome & { questCompleted: DailyQuest | null };
+export type UnlockedAchievement = { id: string; name: string; gold: number };
+
+/** Outcome of some work, plus the daily quest reward and achievements it triggered. */
+export type WorkResult = WorkOutcome & { questCompleted: DailyQuest | null; achievements: UnlockedAchievement[] };
 
 interface GameContextValue {
   state: GameState;
@@ -47,6 +55,16 @@ interface GameContextValue {
   equip(weaponId: WeaponId): ShopError | null;
   updateSettings(patch: Partial<Settings>): void;
   resetProgress(): Promise<void>;
+  /** Player-specific camera thresholds, per exercise. */
+  calibrations: Calibrations;
+  setCalibration(exerciseId: ExerciseId, tracker: TrackerConfig | null): void;
+  /** JSON text of a full backup. */
+  exportBackup(): Promise<string>;
+  /** Replaces everything with a backup file's content. Returns an error code, or null on success. */
+  importBackup(text: string): Promise<BackupError | null>;
+  /** Achievements unlocked outside of a workout (e.g. buying a sword), to show once. */
+  pendingAchievements: UnlockedAchievement[];
+  clearPendingAchievements(): void;
 }
 
 const GameContext = createContext<GameContextValue | null>(null);
@@ -63,6 +81,9 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
   const questRef = useRef<DailyQuest | null>(null);
   const questLoading = useRef(false);
   const [dataVersion, setDataVersion] = useState(0);
+  const [calibrations, setCalibrations] = useState<Calibrations>({});
+  const calibrationsRef = useRef<Calibrations>({});
+  const [pendingAchievements, setPendingAchievements] = useState<UnlockedAchievement[]>([]);
   // Refs hold the latest values so several reps in the same frame chain correctly.
   const stateRef = useRef<GameState | null>(null);
   const setRef = useRef<SetRecord | null>(null);
@@ -79,9 +100,11 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([repository.loadState(), repository.loadSettings(), repository.loadQuest()]).then(
-      ([loaded, loadedSettings, loadedQuest]) => {
+    Promise.all([repository.loadState(), repository.loadSettings(), repository.loadQuest(), repository.loadCalibrations()]).then(
+      ([loaded, loadedSettings, loadedQuest, loadedCalibrations]) => {
         if (cancelled) return;
+        calibrationsRef.current = loadedCalibrations;
+        setCalibrations(loadedCalibrations);
         stateRef.current = loaded;
         settingsRef.current = loadedSettings;
         questRef.current = loadedQuest;
@@ -131,7 +154,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       const now = new Date();
       const result = applyWork(current, exerciseId, input, now);
       let nextState = result.state;
-      const outcome: WorkResult = { ...result.outcome, questCompleted: null };
+      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [] };
       let nextQuest: DailyQuest | null = null;
       if (questRef.current) {
         const progressed = progressQuest(questRef.current, result.outcome);
@@ -147,6 +170,9 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
           }
         }
       }
+      const checked = checkAchievements(nextState);
+      nextState = checked.state;
+      outcome.achievements = checked.unlocked;
       const set = result.outcome.amount > 0 ? recordWork(setRef.current, result.outcome, now, newId) : setRef.current;
       setRef.current = set;
       commitState(nextState);
@@ -170,8 +196,10 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
     (action: typeof buyWeapon, weaponId: WeaponId): ShopError | null => {
       const result = action(stateRef.current ?? createInitialState(), weaponId);
       if ('error' in result) return result.error;
-      commitState(result.state);
-      enqueueSave(() => repository.saveState(result.state));
+      const checked = checkAchievements(result.state);
+      if (checked.unlocked.length > 0) setPendingAchievements((p) => [...p, ...checked.unlocked]);
+      commitState(checked.state);
+      enqueueSave(() => repository.saveState(checked.state));
       return null;
     },
     [repository, commitState, enqueueSave],
@@ -200,6 +228,47 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
     setDataVersion((v) => v + 1);
   }, [repository, commitState]);
 
+  const setCalibration = useCallback(
+    (exerciseId: ExerciseId, tracker: TrackerConfig | null) => {
+      const next = { ...calibrationsRef.current };
+      if (tracker) next[exerciseId] = tracker;
+      else delete next[exerciseId];
+      calibrationsRef.current = next;
+      setCalibrations(next);
+      enqueueSave(() => repository.saveCalibrations(next));
+    },
+    [repository, enqueueSave],
+  );
+
+  const exportBackup = useCallback(async () => {
+    await saveQueue.current;
+    return JSON.stringify(createBackup(await repository.exportAll(), new Date()));
+  }, [repository]);
+
+  const importBackup = useCallback(
+    async (text: string): Promise<BackupError | null> => {
+      const parsed = parseBackup(text);
+      if ('error' in parsed) return parsed.error;
+      await saveQueue.current;
+      const imported = restoreCalibrations(parsed.data.calibrations);
+      await repository.importAll(parsed.data, imported);
+      setRef.current = null;
+      setOpenSet(null);
+      calibrationsRef.current = imported;
+      setCalibrations(imported);
+      settingsRef.current = parsed.data.settings;
+      setSettings(parsed.data.settings);
+      questRef.current = parsed.data.quest;
+      setQuest(parsed.data.quest);
+      commitState(parsed.data.state);
+      setDataVersion((v) => v + 1);
+      return null;
+    },
+    [repository, commitState],
+  );
+
+  const clearPendingAchievements = useCallback(() => setPendingAchievements([]), []);
+
   const value = useMemo<GameContextValue | null>(
     () =>
       state
@@ -217,9 +286,35 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
             equip,
             updateSettings,
             resetProgress,
+            calibrations,
+            setCalibration,
+            exportBackup,
+            importBackup,
+            pendingAchievements,
+            clearPendingAchievements,
           }
         : null,
-    [state, quest, settings, openSet, repository, dataVersion, work, refreshQuest, closeSet, buy, equip, updateSettings, resetProgress],
+    [
+      state,
+      quest,
+      settings,
+      openSet,
+      repository,
+      dataVersion,
+      work,
+      refreshQuest,
+      closeSet,
+      buy,
+      equip,
+      updateSettings,
+      resetProgress,
+      calibrations,
+      setCalibration,
+      exportBackup,
+      importBackup,
+      pendingAchievements,
+      clearPendingAchievements,
+    ],
   );
 
   if (!value) return <>{fallback}</>;

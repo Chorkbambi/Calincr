@@ -51,7 +51,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-asset"
+      "expo-asset",
+      "expo-sharing"
     ],
     "scheme": "calincr",
     "backgroundColor": "#1b1510"
