@@ -7,3 +7,4 @@ export * from './boss';
 export * from './engine';
 export * from './sets';
 export * from './stats';
+export * from './serialization';
