@@ -39,6 +39,7 @@ src/
     engine.ts        GameState, dégâts, applyWork() (reps/secondes → coups + XP)
     sets.ts          agrégation des séries enregistrées
     stats.ts         calendrier : volume, intensité, totaux semaine/mois
+    recommend.ts     conseil du jour : exercices classés selon le bonus de repos
     serialization.ts restauration robuste d'un état sauvegardé
     __tests__/
   input/       Saisie des répétitions
@@ -72,6 +73,8 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Combat a
 - **Boss** : PV = `round(20 × 1.35^index)` (index à partir de 0). Boss vaincu → suivant. Historique conservé.
 - Chaque rép. = 1 coup puis gain d'XP (un niveau gagné en cours de série augmente les coups suivants).
 - Gainage : 1 coup toutes les `COMBAT.secondsPerHit` secondes (5 par défaut), le reste est reporté.
+- **Conseil du jour** (écran Combat) : chaque exercice reçoit un multiplicateur effectif = Σ (poids du muscle × multiplicateur de repos actuel).
+  Le plus élevé est proposé (ex. fessiers et ischios reposés → pont fessier), avec deux alternatives. Stable toute la journée.
 
 ## Conventions
 
@@ -100,3 +103,4 @@ Choix faits là où le cahier des charges était ambigu (les plus simples) :
 11. **Noms des boss** : liste fixe qui boucle avec un chiffre romain (II, III…). Apparence SVG qui varie selon l'index.
 12. **Une seule arme** en phase 1 (`WEAPONS` dans config.ts, prêt pour en ajouter).
 13. **Saisie d'un nombre** plafonnée à 999 rép. par envoi.
+14. **Conseil du jour** : classement par bonus de repos (multiplicateur effectif), pas par XP brute par rép. L'XP de base reflète déjà la difficulté (une traction rapporte plus qu'un crunch) : sans ça, les tractions seraient toujours proposées. En cas d'égalité, l'exercice qui donne le plus d'XP par rép. passe devant. À tester en conditions réelles, comme les valeurs d'XP.

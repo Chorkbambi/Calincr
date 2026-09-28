@@ -1,5 +1,5 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +9,8 @@ import {
   getExercise,
   hitDamage,
   MUSCLE_NAMES,
+  recommendExercises,
+  toDayKey,
   type ExerciseId,
   type WorkInput,
   type WorkOutcome,
@@ -16,6 +18,7 @@ import {
 import { useRepInput, type RepEvent } from '../input';
 import { useGame } from '../state/GameProvider';
 import { BattleArena } from '../ui/components/BattleArena';
+import { DailyTip } from '../ui/components/DailyTip';
 import { GoldButton } from '../ui/components/GoldButton';
 import { Panel } from '../ui/components/Panel';
 import { HpBar } from '../ui/components/HpBar';
@@ -63,6 +66,8 @@ export default function CombatScreen() {
   useEffect(() => () => void (messageTimer.current && clearTimeout(messageTimer.current)), []);
 
   const boss = frame.boss ?? state.boss;
+  const today = toDayKey(new Date());
+  const ranking = useMemo(() => recommendExercises(state, today), [state, today]);
   const selectExercise = (id: ExerciseId) => {
     if (id === exerciseId) return;
     closeSet();
@@ -89,6 +94,8 @@ export default function CombatScreen() {
             <Text style={styles.damageValue}>{formatNumber(hitDamage(state))}</Text>
           </View>
           {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          <DailyTip ranking={ranking} selected={exerciseId} onSelect={selectExercise} />
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {EXERCISES.map((e) => {
