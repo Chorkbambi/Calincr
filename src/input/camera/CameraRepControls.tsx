@@ -9,6 +9,7 @@ import { GoldButton } from '../../ui/components/GoldButton';
 import { colors, fonts, radius, spacing } from '../../ui/theme';
 import type { CameraRepSource, CameraState } from '../CameraRepSource';
 import { UNDO_MESSAGE } from '../ManualRepControls';
+import { isAllowedCameraNavigation, WEBVIEW_ORIGIN_WHITELIST } from './navigation';
 import { CAMERA_PAGE_BASE_URL, POSE_CAMERA_HTML } from './poseCameraPage';
 
 export const INTERNET_NOTICE =
@@ -22,9 +23,7 @@ const ERROR_TEXT: Record<Extract<CameraState, { stage: 'error' }>['code'], strin
   unknown: 'Something went wrong with the camera.',
 };
 
-/** Only the camera page itself may load: every navigation is blocked. */
-const allowOnlyCameraPage = (request: ShouldStartLoadRequest) =>
-  request.url === 'about:blank' || request.url.startsWith(CAMERA_PAGE_BASE_URL);
+const allowOnlyCameraPage = (request: ShouldStartLoadRequest) => isAllowedCameraNavigation(request.url);
 
 function statusText(state: CameraState): string {
   if (state.stage === 'loading') return 'Downloading the body-tracking engine (needs internet)…';
@@ -88,7 +87,7 @@ export function CameraRepControls({ source, exerciseId, active }: { source: Came
           <WebView
             key={session}
             source={{ html: POSE_CAMERA_HTML, baseUrl: CAMERA_PAGE_BASE_URL }}
-            originWhitelist={[CAMERA_PAGE_BASE_URL, 'about:blank']}
+            originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
             onShouldStartLoadWithRequest={allowOnlyCameraPage}
             onMessage={(event: WebViewMessageEvent) => source.handleMessage(event.nativeEvent.data)}
             mediaCapturePermissionGrantType="grantIfSameHostElseDeny"
