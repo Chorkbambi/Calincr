@@ -79,7 +79,8 @@ npx tsc --noEmit    # vérification TypeScript
 
 ## Écrans (l'app est en anglais)
 
-1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, conseil du jour, choix de l'exercice
+1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, **quête du jour** (un exercice + un
+   objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), choix de l'exercice
    (bouton « How to » pour l'explication), comptage des répétitions par la caméra ou à la main.
 2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
    recommandés), niveaux / XP / état de repos, boss vaincus.

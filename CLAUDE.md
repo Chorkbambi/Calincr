@@ -59,7 +59,8 @@ src/
     settings.ts      réglages (mode caméra/manuel, difficulté, reps par appui) + validation
     sets.ts          agrégation des séries enregistrées
     stats.ts         calendrier : volume, intensité, totaux semaine/mois
-    recommend.ts     conseil du jour : exercices classés selon le bonus de repos
+    recommend.ts     exercices classés selon le bonus de repos
+    quest.ts         quête du jour : exercice, objectif selon l'historique, récompense, streak
     serialization.ts restauration robuste d'un état sauvegardé
   pose/        Comptage des reps à partir des points du corps (TypeScript pur, testé)
     landmarks.ts, metrics.ts   angles des articulations
@@ -103,7 +104,12 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
 - **Or** : chaque ennemi vaincu rapporte `max(1, round(PV max × 0.25))`, ×2 pour un boss. Sert à acheter des épées (Shop).
 - Chaque rép. = 1 coup puis gain d'XP (un niveau gagné en cours de série augmente les coups suivants).
 - Gainages : 1 coup toutes les `COMBAT.secondsPerHit` secondes (5 par défaut), le reste est reporté.
-- **Conseil du jour** (écran Fight) : parmi les exercices du mode de difficulté, multiplicateur effectif = Σ (poids × multiplicateur de repos).
+- **Quête du jour** (écran Fight, `src/game/quest.ts`) : UN seul exercice proposé par jour (l'app motive, elle ne coache pas) :
+  celui dont les muscles sont les plus reposés (multiplicateur effectif = Σ poids × multiplicateur de repos).
+  Objectif = total de la dernière séance de cet exercice + 10 % (au moins +1 rép. / +5 s), valeur de départ par niveau
+  si jamais fait, × 0,8 après 10 jours sans, × 0,7 si les muscles sont fatigués ; découpé en séries (ex. 3 × 8).
+  Récompense à la complétion : XP bonus (objectif × XP de base × 0,5, sans multiplicateur) + or (1,5 × PV du 1er monstre
+  du niveau). Série de jours consécutifs (streak). Générée une fois par jour, sauvegardée (kv `daily_quest`).
 - **Mode manuel** : le bouton Rep ajoute « reps par appui » (1 à 50). Le bouton Undo n'annule rien : il affiche
   « Made a mistake? Too bad — you'll have to make up for it! » (volontaire).
 - **Mode caméra** : correction manuelle possible (+1 / +5 reps, +5 / +15 s pour les gainages) si la caméra rate des reps ;
@@ -138,7 +144,7 @@ Choix faits là où la demande était ambiguë (les plus simples) :
 8. **Horloge reculée** : on garde le multiplicateur déjà figé, sans pénalité.
 9. **Intensité du calendrier** : volume = reps + secondes de gainage / 5 ; seuils 1 / 40 / 100 / 200.
 10. **Semaines** : du lundi au dimanche.
-11. **Conseil du jour** : classement par bonus de repos, pas par XP brute (sinon l'exercice le plus dur serait toujours proposé). Égalité → plus d'XP par rép.
+11. **Quête du jour** : exercice choisi par bonus de repos, pas par XP brute (sinon l'exercice le plus dur serait toujours proposé). Égalité → plus d'XP par rép.
 12. **Difficulté** : Advanced montre aussi les exercices Normal (squats, pompes…), Beginner uniquement les simplifiés. Par défaut : Normal.
 13. **Mode caméra par défaut** ; le mode manuel est un réglage. Changer d'exercice ferme la série.
 14. **Détection caméra** : WebView + MediaPipe Pose Landmarker « lite » (épinglé : tasks-vision 1.0.1, modèle float16/1). Nécessite internet au premier lancement du mode caméra. Seuils de détection par exercice dans `src/pose/trackers.ts` ; certains exercices (mollets, supermans, nordic curls) sont difficiles à détecter et sont à tester.

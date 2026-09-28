@@ -2,8 +2,10 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   isExerciseId,
+  restoreQuest,
   restoreSettings,
   restoreState,
+  type DailyQuest,
   type DayKey,
   type GameState,
   type Kill,
@@ -13,6 +15,7 @@ import {
 
 const STATE_KEY = 'game_state';
 const SETTINGS_KEY = 'settings';
+const QUEST_KEY = 'daily_quest';
 
 interface SetRow {
   id: string;
@@ -69,6 +72,15 @@ export class GameRepository {
     await this.putKv(SETTINGS_KEY, JSON.stringify(settings));
   }
 
+  async loadQuest(): Promise<DailyQuest | null> {
+    const row = await this.db.getFirstAsync<{ value: string }>('SELECT value FROM kv WHERE key = ?', QUEST_KEY);
+    return restoreQuest(row ? parseJson<unknown>(row.value, null) : null);
+  }
+
+  async saveQuest(quest: DailyQuest): Promise<void> {
+    await this.putKv(QUEST_KEY, JSON.stringify(quest));
+  }
+
   /** Saves the state alone (shop purchases). */
   async saveState(state: GameState): Promise<void> {
     await this.putKv(STATE_KEY, JSON.stringify(state));
@@ -83,9 +95,10 @@ export class GameRepository {
   }
 
   /** Saves the state, the open set and any kills atomically. */
-  async saveProgress(state: GameState, set: SetRecord | null, kills: readonly Kill[]): Promise<void> {
+  async saveProgress(state: GameState, set: SetRecord | null, kills: readonly Kill[], quest?: DailyQuest | null): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.putKv(STATE_KEY, JSON.stringify(state));
+      if (quest) await this.putKv(QUEST_KEY, JSON.stringify(quest));
       if (set) {
         await this.db.runAsync(
           `INSERT INTO sets (id, started_at, updated_at, day, exercise_id, amount, xp_json, multipliers_json, damage, hits)
@@ -157,7 +170,7 @@ export class GameRepository {
   /** Erases the game progress and history but keeps the player's settings. */
   async resetAll(): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM kv WHERE key = ?', STATE_KEY);
+      await this.db.runAsync('DELETE FROM kv WHERE key IN (?, ?)', STATE_KEY, QUEST_KEY);
       await this.db.execAsync('DELETE FROM sets; DELETE FROM boss_kills; DELETE FROM kills;');
     });
   }

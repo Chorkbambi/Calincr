@@ -13,18 +13,15 @@ import {
   isBossStage,
   isExerciseId,
   MUSCLE_NAMES,
-  recommendExercises,
-  toDayKey,
   WEAPONS,
   zoneForLevel,
   type ExerciseId,
   type WorkInput,
-  type WorkOutcome,
 } from '../game';
 import { useRepInput, type RepEvent } from '../input';
-import { useGame } from '../state/GameProvider';
+import { useGame, type WorkResult } from '../state/GameProvider';
 import { BattleArena } from '../ui/components/BattleArena';
-import { DailyTip } from '../ui/components/DailyTip';
+import { DailyQuestCard } from '../ui/components/DailyQuestCard';
 import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { GoldButton } from '../ui/components/GoldButton';
 import { HpBar } from '../ui/components/HpBar';
@@ -36,7 +33,7 @@ import { useHitQueue } from '../ui/useHitQueue';
 const toWorkInput = (event: RepEvent): WorkInput =>
   event.type === 'reps' ? { kind: 'reps', count: event.count } : { kind: 'seconds', seconds: event.seconds };
 
-function describe(outcome: WorkOutcome): string | null {
+function describe(outcome: WorkResult): string | null {
   const parts: string[] = [];
   for (const kill of outcome.kills) {
     parts.push(
@@ -45,12 +42,17 @@ function describe(outcome: WorkOutcome): string | null {
         : `${enemyName(kill.level, kill.stage)} defeated · +${formatNumber(kill.gold)} gold`,
     );
   }
+  if (outcome.questCompleted) {
+    parts.push(
+      `Daily quest complete! +${formatNumber(outcome.questCompleted.rewardXp)} XP · +${formatNumber(outcome.questCompleted.rewardGold)} gold`,
+    );
+  }
   for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
   return parts.length > 0 ? parts.slice(-3).join('\n') : null;
 }
 
 export default function CombatScreen() {
-  const { state, settings, openSet, work, closeSet, updateSettings } = useGame();
+  const { state, quest, settings, openSet, work, refreshQuest, closeSet, updateSettings } = useGame();
   const params = useLocalSearchParams<{ exercise?: string }>();
   const focused = useIsFocused();
   const exercises = useMemo(() => exercisesForDifficulty(settings.difficulty), [settings.difficulty]);
@@ -92,6 +94,11 @@ export default function CombatScreen() {
     setExerciseId(id);
   };
 
+  // New day while the app stayed open: get today's quest.
+  useEffect(() => {
+    if (focused) refreshQuest();
+  }, [focused, refreshQuest]);
+
   // Exercise picked from another screen (muscle sheet).
   useEffect(() => {
     if (!params.exercise) return;
@@ -129,8 +136,6 @@ export default function CombatScreen() {
   const enemy = frame.enemy ?? state.enemy;
   const boss = isBossStage(enemy.stage);
   const zone = zoneForLevel(enemy.level);
-  const today = toDayKey(new Date());
-  const ranking = useMemo(() => recommendExercises(state, today, settings.difficulty), [state, today, settings.difficulty]);
   const weaponTier = WEAPONS.findIndex((w) => w.id === state.weaponId);
 
   return (
@@ -160,7 +165,7 @@ export default function CombatScreen() {
           </View>
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
-          <DailyTip ranking={ranking} selected={exerciseId} onSelect={selectExercise} />
+          <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {exercises.map((e) => {

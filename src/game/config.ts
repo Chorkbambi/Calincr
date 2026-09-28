@@ -169,3 +169,34 @@ export const MANUAL_INPUT = {
   minRepsPerPress: 1,
   maxRepsPerPress: 50,
 } as const;
+
+/** Daily quest: one suggested exercise per day with a rep target based on the player's history. */
+export const QUEST = {
+  /** How far back the history is read to pick the target. */
+  historyDays: 28,
+  /** First time doing the exercise: target per tier (reps, or seconds for holds). */
+  startTarget: {
+    beginner: { reps: 12, seconds: 30 },
+    normal: { reps: 15, seconds: 40 },
+    advanced: { reps: 8, seconds: 30 },
+  },
+  /** Target = last session's total × (1 + progression), at least + minStep. */
+  progression: 0.1,
+  minStep: { reps: 1, seconds: 5 },
+  /** Not done for this many days or more: restart a bit lower (× detrainFactor). */
+  detrainDays: 10,
+  detrainFactor: 0.8,
+  /** Muscles still tired (best multiplier < 1): lighter day (× tiredFactor). */
+  tiredFactor: 0.7,
+  minTarget: { reps: 3, seconds: 10 },
+  /** Split into sets: [minimum total, number of sets], checked from the top. */
+  sets: {
+    reps: [[30, 4], [12, 3], [6, 2], [0, 1]],
+    seconds: [[90, 3], [40, 2], [0, 1]],
+  },
+  /** Reward on completion: bonus XP = target × baseXp × xpBonusRatio (split over the muscles, no rest multiplier). */
+  xpBonusRatio: 0.5,
+  /** Bonus gold = max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)). */
+  goldPerMonsterHp: 1.5,
+  minGold: 10,
+} as const;
