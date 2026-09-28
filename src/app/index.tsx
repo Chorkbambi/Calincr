@@ -13,6 +13,8 @@ import {
   isBossStage,
   isExerciseId,
   MUSCLE_NAMES,
+  sortByFavorites,
+  toDayKey,
   WEAPONS,
   zoneForLevel,
   type ExerciseId,
@@ -26,7 +28,9 @@ import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { GoldButton } from '../ui/components/GoldButton';
 import { HpBar } from '../ui/components/HpBar';
 import { Panel } from '../ui/components/Panel';
-import { formatAmount, formatCompact, formatNumber } from '../ui/format';
+import { ComboBadge } from '../ui/components/ComboBadge';
+import { RestTimer } from '../ui/components/RestTimer';
+import { formatAmount, formatCompact, formatDayShort, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
 
@@ -48,19 +52,48 @@ function describe(outcome: WorkResult): string | null {
     );
   }
   for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
+  for (const a of outcome.achievements) parts.push(`🏆 Achievement: ${a.name} · +${formatNumber(a.gold)} gold`);
   return parts.length > 0 ? parts.slice(-3).join('\n') : null;
 }
 
 export default function CombatScreen() {
-  const { state, quest, settings, openSet, work, refreshQuest, closeSet, updateSettings } = useGame();
+  const {
+    state,
+    quest,
+    settings,
+    openSet,
+    work,
+    refreshQuest,
+    closeSet,
+    updateSettings,
+    calibrations,
+    setCalibration,
+    repository,
+    dataVersion,
+  } = useGame();
   const params = useLocalSearchParams<{ exercise?: string }>();
   const focused = useIsFocused();
-  const exercises = useMemo(() => exercisesForDifficulty(settings.difficulty), [settings.difficulty]);
+  const exercises = useMemo(
+    () => sortByFavorites(exercisesForDifficulty(settings.difficulty), settings.favorites),
+    [settings.difficulty, settings.favorites],
+  );
+  const [lastDone, setLastDone] = useState<Record<string, { day: string; amount: number }>>({});
+  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   const [exerciseId, setExerciseId] = useState<ExerciseId>(() => (exercises[0]?.id as ExerciseId) ?? 'pushup');
   const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
   const { frame, enqueue } = useHitQueue();
   const [message, setMessage] = useState<string | null>(null);
+
+  /** Ends the current set and, if the player wants it, starts the rest timer. */
+  const finishSet = () => {
+    closeSet();
+    if (settings.restTimerSeconds > 0) setRestStartedAt(Date.now());
+  };
+  const restTimer =
+    restStartedAt !== null ? (
+      <RestTimer startedAt={restStartedAt} seconds={settings.restTimerSeconds} onDone={() => setRestStartedAt(null)} />
+    ) : null;
   const hudEnemy = frame.enemy ?? state.enemy;
   const hud = (
     <View style={styles.hud}>
@@ -75,7 +108,9 @@ export default function CombatScreen() {
       <Text style={styles.hp}>
         {formatNumber(hudEnemy.hp)} / {formatNumber(hudEnemy.maxHp)} HP · {formatNumber(hitDamage(state))} per hit
       </Text>
+      <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
       {message ? <Text style={styles.message}>{message}</Text> : null}
+      {restTimer}
     </View>
   );
   const { source, controls } = useRepInput({
@@ -87,7 +122,21 @@ export default function CombatScreen() {
     hud,
     hideCameraImage: settings.hideCameraImage,
     onHideCameraImageChange: (hideCameraImage) => updateSettings({ hideCameraImage }),
+    onSetDone: finishSet,
+    calibrations,
+    onCalibrated: setCalibration,
+    largeButtons: settings.largeButtons,
   });
+
+  useEffect(() => {
+    let cancelled = false;
+    repository.lastDoneByExercise().then((map) => {
+      if (!cancelled) setLastDone(map);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [repository, dataVersion]);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectExercise = (id: ExerciseId) => {
@@ -135,6 +184,17 @@ export default function CombatScreen() {
   );
   useEffect(() => () => void (messageTimer.current && clearTimeout(messageTimer.current)), []);
 
+  const isFavorite = settings.favorites.includes(exerciseId);
+  const toggleFavorite = () =>
+    updateSettings({
+      favorites: isFavorite ? settings.favorites.filter((f) => f !== exerciseId) : [...settings.favorites, exerciseId],
+    });
+  const last = lastDone[exerciseId];
+  const today = toDayKey(new Date());
+  const lastDoneText = last
+    ? `Last time: ${formatAmount(exerciseId, last.amount)} · ${last.day === today ? 'today' : formatDayShort(last.day)}`
+    : 'Never done yet — take it easy the first time.';
+
   const enemy = frame.enemy ?? state.enemy;
   const boss = isBossStage(enemy.stage);
   const zone = zoneForLevel(enemy.level);
@@ -165,6 +225,7 @@ export default function CombatScreen() {
             <Text style={styles.damageLabel}>Damage per hit</Text>
             <Text style={styles.damageValue}>{formatNumber(hitDamage(state))}</Text>
           </View>
+          <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
           {message ? <Text style={styles.message}>{message}</Text> : null}
 
           <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
@@ -172,15 +233,19 @@ export default function CombatScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {exercises.map((e) => {
               const selected = e.id === exerciseId;
+              const pinned = settings.favorites.includes(e.id as ExerciseId);
               return (
                 <Pressable
                   key={e.id}
                   onPress={() => selectExercise(e.id as ExerciseId)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  style={[styles.chip, selected && styles.chipSelected]}
+                  style={[styles.chip, selected && styles.chipSelected, settings.largeButtons && styles.chipLarge]}
                 >
-                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{e.name}</Text>
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected, settings.largeButtons && styles.chipTextLarge]}>
+                    {pinned ? '★ ' : ''}
+                    {e.name}
+                  </Text>
                 </Pressable>
               );
             })}
@@ -188,11 +253,16 @@ export default function CombatScreen() {
 
           <View style={styles.exerciseRow}>
             <Text style={styles.exerciseName}>{exercise.name}</Text>
+            <Pressable onPress={toggleFavorite} hitSlop={8} accessibilityRole="button" accessibilityLabel={isFavorite ? 'Unpin exercise' : 'Pin exercise'}>
+              <Text style={styles.howTo}>{isFavorite ? '★ Pinned' : '☆ Pin'}</Text>
+            </Pressable>
             <Pressable onPress={() => setGuideFor(exerciseId)} hitSlop={8} accessibilityRole="button">
               <Text style={styles.howTo}>ⓘ How to</Text>
             </Pressable>
           </View>
+          <Text style={styles.muted}>{lastDoneText}</Text>
 
+          {restTimer}
           {controls}
 
           <Panel title="Current set">
@@ -202,7 +272,12 @@ export default function CombatScreen() {
                   {getExercise(openSet.exerciseId).name} — {formatAmount(openSet.exerciseId, openSet.amount)} ·{' '}
                   {formatNumber(openSet.damage)} damage
                 </Text>
-                <GoldButton label="Finish set" variant="stone" onPress={closeSet} />
+                <GoldButton
+                  label="Finish set"
+                  variant="stone"
+                  onPress={finishSet}
+                  style={settings.largeButtons ? styles.largeButton : undefined}
+                />
               </>
             ) : (
               <Text style={styles.muted}>
@@ -249,8 +324,11 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: colors.parchment, borderColor: colors.gold },
   chipText: { color: colors.text, fontSize: 14 },
   chipTextSelected: { color: colors.ink },
-  exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  exerciseName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 18, flexShrink: 1 },
+  chipLarge: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
+  chipTextLarge: { fontSize: 17 },
+  largeButton: { paddingVertical: spacing.lg },
+  exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
+  exerciseName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 18, flexShrink: 1, flex: 1 },
   howTo: { color: colors.goldLight, fontFamily: fonts.title, fontSize: 14 },
   setText: { color: colors.text, fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 14 },

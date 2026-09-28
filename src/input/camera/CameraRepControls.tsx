@@ -6,7 +6,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 import type { ShouldStartLoadRequest } from 'react-native-webview/lib/WebViewTypes';
 
-import { EXERCISE_GUIDES, getExercise, type ExerciseId } from '../../game';
+import { CALIBRATION, EXERCISE_GUIDES, getExercise, type ExerciseId } from '../../game';
+import type { TrackerConfig } from '../../pose/trackers';
 import { describeBodyParts, requiredBodyParts } from '../../pose/visibility';
 import { GoldButton } from '../../ui/components/GoldButton';
 import { Panel } from '../../ui/components/Panel';
@@ -55,6 +56,10 @@ export function CameraRepControls({
   hud,
   hideImage,
   onHideImageChange,
+  onSetDone,
+  calibrated,
+  onCalibrated,
+  largeButtons = false,
 }: {
   source: CameraRepSource;
   exerciseId: ExerciseId;
@@ -64,6 +69,13 @@ export function CameraRepControls({
   onHideImageChange: (hide: boolean) => void;
   /** Fight info shown on top of the camera (enemy, HP…). */
   hud?: ReactNode;
+  /** The player finished a set (starts the rest timer if enabled). */
+  onSetDone: () => void;
+  /** True if this exercise has the player's own thresholds. */
+  calibrated: boolean;
+  /** Saves (or, with null, removes) this exercise's calibration. */
+  onCalibrated: (tracker: TrackerConfig | null) => void;
+  largeButtons?: boolean;
 }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [state, setState] = useState<CameraState>(source.getState());
@@ -72,6 +84,8 @@ export function CameraRepControls({
   const [session, setSession] = useState(0);
   const [count, setCount] = useState(0);
   const [undoShown, setUndoShown] = useState(false);
+  const [calibrationLeft, setCalibrationLeft] = useState<number | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const webViewRef = useRef<WebView>(null);
   const exercise = getExercise(exerciseId);
@@ -88,6 +102,8 @@ export function CameraRepControls({
   );
 
   const stop = () => {
+    if (source.isCalibrating) source.finishCalibration();
+    setCalibrationLeft(null);
     setStarted(false);
     setLandscape(false);
     void lockPortrait();
@@ -123,6 +139,35 @@ export function CameraRepControls({
     ScreenOrientation.lockAsync(
       next ? ScreenOrientation.OrientationLock.LANDSCAPE : ScreenOrientation.OrientationLock.PORTRAIT_UP,
     ).catch(() => {});
+  };
+
+  // Calibration: record the player's range of motion for a few seconds, then adapt the thresholds.
+  useEffect(() => {
+    if (calibrationLeft === null) return undefined;
+    if (calibrationLeft <= 0) {
+      const result = source.finishCalibration();
+      setCalibrationLeft(null);
+      if ('tracker' in result) {
+        onCalibrated(result.tracker);
+        setNotice('Calibrated ✓ The camera now fits your movement.');
+      } else {
+        setNotice(
+          result.error === 'not_enough_movement'
+            ? 'Not enough movement seen. Do full, slow reps with the right body parts visible, then try again.'
+            : 'Could not see you well enough. Check the camera placement and try again.',
+        );
+      }
+      return undefined;
+    }
+    const t = setTimeout(() => setCalibrationLeft((s) => (s === null ? null : s - 1)), 1000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [calibrationLeft]);
+
+  const startCalibration = () => {
+    setNotice(null);
+    source.startCalibration();
+    setCalibrationLeft(Math.round(CALIBRATION.durationMs / 1000));
   };
 
   // Like manual mode, a wrong count can't be removed: it has to be made up for.
@@ -163,6 +208,11 @@ export function CameraRepControls({
           ⟲ Lying or wide exercises (push-ups, planks…) fit better with the phone turned sideways: use the Rotate button.
         </Text>
         <GoldButton big label="Start camera" onPress={start} disabled={!active} />
+        <Text style={styles.muted}>
+          🎯 Reps not counted well? Use “Calibrate” on the camera screen: do 3 slow reps and the camera adapts to you.
+          {calibrated ? ' This exercise is calibrated for you.' : ''}
+        </Text>
+        {calibrated ? <GoldButton label="Reset calibration" variant="stone" onPress={() => onCalibrated(null)} /> : null}
         <Text style={styles.muted}>🔒 Analysed on your phone. Nothing is recorded, saved or sent.</Text>
         <Text style={styles.muted}>📴 {OFFLINE_NOTICE}</Text>
         <Text style={styles.muted}>
@@ -217,6 +267,19 @@ export function CameraRepControls({
               <View style={styles.privacyBadge}>
                 <Text style={styles.privacyText}>🔒 Not recorded · stays on this phone</Text>
               </View>
+              {calibrationLeft !== null ? (
+                <View style={styles.calibration}>
+                  <Text style={styles.calibrationTitle}>Calibrating… {calibrationLeft}s</Text>
+                  <Text style={styles.calibrationText}>
+                    {timed ? 'Hold the position as well as you can.' : 'Do 3 slow, full reps now. They are not counted.'}
+                  </Text>
+                </View>
+              ) : null}
+              {notice ? (
+                <Text style={styles.notice} onPress={() => setNotice(null)}>
+                  {notice}
+                </Text>
+              ) : null}
             </View>
             <View style={styles.bottom}>
               <View style={styles.counterRow}>
@@ -232,11 +295,28 @@ export function CameraRepControls({
                     key={n}
                     label={timed ? `+${n} s` : `+${n}`}
                     variant="stone"
-                    style={styles.flex}
+                    style={[styles.flex, largeButtons && styles.large]}
                     onPress={() => source.addManually(n, timed ? 'seconds' : 'reps')}
                   />
                 ))}
-                <GoldButton label="↶ Undo" variant="stone" style={styles.flex} onPress={undo} />
+                <GoldButton label="↶ Undo" variant="stone" style={[styles.flex, largeButtons && styles.large]} onPress={undo} />
+              </View>
+              <View style={styles.row}>
+                <GoldButton
+                  label="✓ Set done"
+                  style={[styles.flex, largeButtons && styles.large]}
+                  onPress={() => {
+                    setCount(0);
+                    onSetDone();
+                  }}
+                />
+                <GoldButton
+                  label="🎯 Calibrate"
+                  variant="stone"
+                  style={[styles.flex, largeButtons && styles.large]}
+                  disabled={state.stage !== 'running' || calibrationLeft !== null}
+                  onPress={startCalibration}
+                />
               </View>
               {undoShown ? <Text style={styles.undo}>{UNDO_MESSAGE}</Text> : null}
               <View style={styles.row}>
@@ -293,4 +373,25 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1, paddingHorizontal: spacing.xs, paddingVertical: spacing.sm },
   undo: { color: colors.tired, fontFamily: fonts.title, fontSize: 14, textAlign: 'center' },
+  large: { paddingVertical: spacing.lg },
+  calibration: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(27,21,16,0.9)',
+    borderRadius: radius.md,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    padding: spacing.md,
+    gap: 4,
+  },
+  calibrationTitle: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 20, textAlign: 'center' },
+  calibrationText: { color: colors.parchment, fontSize: 14, textAlign: 'center' },
+  notice: {
+    alignSelf: 'center',
+    color: colors.parchment,
+    backgroundColor: 'rgba(27,21,16,0.9)',
+    borderRadius: radius.md,
+    padding: spacing.sm,
+    fontSize: 13,
+    textAlign: 'center',
+  },
 });

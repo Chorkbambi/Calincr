@@ -16,11 +16,14 @@ export function ManualRepControls({
   unit,
   repsPerPress,
   onRepsPerPressChange,
+  largeButtons = false,
 }: {
   source: ManualRepSource;
   unit: ExerciseUnit;
   repsPerPress: number;
   onRepsPerPressChange: (value: number) => void;
+  /** Accessibility: much bigger buttons, easier to hit mid-workout. */
+  largeButtons?: boolean;
 }) {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
@@ -53,7 +56,7 @@ export function ManualRepControls({
 
   const undoRow = (
     <>
-      <GoldButton label="↶ Undo" variant="stone" onPress={undo} />
+      <GoldButton label="↶ Undo" variant="stone" onPress={undo} style={largeButtons && styles.large} />
       {undoShown ? <Text style={styles.undo}>{UNDO_MESSAGE}</Text> : null}
     </>
   );
@@ -69,6 +72,7 @@ export function ManualRepControls({
           label={running ? 'Stop' : 'Start'}
           variant={running ? 'danger' : 'gold'}
           onPress={() => (running ? source.stopTimer() : source.startTimer())}
+          style={largeButtons && styles.huge}
         />
         {undoRow}
       </View>
@@ -79,7 +83,12 @@ export function ManualRepControls({
 
   return (
     <View style={styles.box}>
-      <GoldButton big label={repsPerPress > 1 ? `Rep ×${repsPerPress}` : 'Rep'} onPress={() => source.pressRep(repsPerPress)} />
+      <GoldButton
+        big
+        label={repsPerPress > 1 ? `Rep ×${repsPerPress}` : 'Rep'}
+        onPress={() => source.pressRep(repsPerPress)}
+        style={largeButtons && styles.huge}
+      />
       <View style={styles.row}>
         <Text style={styles.label}>Reps per press</Text>
         <View style={styles.stepper}>
@@ -99,6 +108,8 @@ export function ManualRepControls({
 
 const styles = StyleSheet.create({
   box: { gap: spacing.sm },
+  large: { paddingVertical: spacing.lg },
+  huge: { minHeight: 140 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   label: { color: colors.textMuted, fontFamily: fonts.title, fontSize: 13 },
   stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

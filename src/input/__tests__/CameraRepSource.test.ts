@@ -42,4 +42,22 @@ describe('CameraRepSource', () => {
       { type: 'seconds', seconds: 5 },
     ]);
   });
+
+  it('calibrates without counting reps, then uses the player thresholds', () => {
+    const source = new CameraRepSource('pushup');
+    const events: RepEvent[] = [];
+    source.subscribe((e) => events.push(e));
+    source.handleMessage('{"type":"ready"}');
+    source.startCalibration();
+    let t = 0;
+    // Shallow push-ups (140° ↔ 105°): the default thresholds would never count them.
+    const cycle = [140, 132, 124, 116, 108, 105, 108, 116, 124, 132, 140];
+    for (let r = 0; r < 3; r++) for (const a of cycle) source.handleMessage(poseMessage((t += 150), a));
+    expect(events).toEqual([]);
+    const result = source.finishCalibration();
+    if (!('tracker' in result)) throw new Error('calibration failed');
+    source.setCalibrations({ pushup: result.tracker });
+    for (let r = 0; r < 2; r++) for (const a of cycle) for (let k = 0; k < 2; k++) source.handleMessage(poseMessage((t += 100), a));
+    expect(events.filter((e) => e.type === 'reps').length).toBeGreaterThanOrEqual(1);
+  });
 });

@@ -1,8 +1,9 @@
 import type { ExerciseId } from '../game/config';
 import type { BridgeMessage } from '../pose/messages';
 import { parseBridgeMessage } from '../pose/messages';
+import { calibrateTracker, trackerFor, type CalibrationResult, type Calibrations } from '../pose/calibration';
+import { measure } from '../pose/metrics';
 import { RepCounter, type CounterStatus } from '../pose/repCounter';
-import { TRACKERS } from '../pose/trackers';
 import { missingBodyParts, type BodyPart } from '../pose/visibility';
 import { BaseRepSource } from './RepSource';
 
@@ -20,16 +21,41 @@ export class CameraRepSource extends BaseRepSource {
   private counter: RepCounter;
   private state: CameraState = { stage: 'loading' };
   private stateListeners = new Set<(state: CameraState) => void>();
+  private calibrations: Calibrations = {};
+  /** Values measured while calibrating (null when not calibrating). No rep is counted meanwhile. */
+  private calibrationValues: number[] | null = null;
 
   constructor(private exerciseId: ExerciseId) {
     super();
-    this.counter = new RepCounter(TRACKERS[exerciseId]);
+    this.counter = new RepCounter(trackerFor(exerciseId, this.calibrations));
   }
 
   setExercise(id: ExerciseId): void {
     if (id === this.exerciseId) return;
     this.exerciseId = id;
-    this.counter = new RepCounter(TRACKERS[id]);
+    this.calibrationValues = null;
+    this.counter = new RepCounter(trackerFor(id, this.calibrations));
+  }
+
+  /** Player-specific thresholds; applied immediately. */
+  setCalibrations(calibrations: Calibrations): void {
+    this.calibrations = calibrations;
+    this.counter = new RepCounter(trackerFor(this.exerciseId, calibrations));
+  }
+
+  startCalibration(): void {
+    this.calibrationValues = [];
+  }
+
+  /** Stops calibrating and returns the adapted thresholds (not saved: the caller decides). */
+  finishCalibration(): CalibrationResult {
+    const values = this.calibrationValues ?? [];
+    this.calibrationValues = null;
+    return calibrateTracker(trackerFor(this.exerciseId, {}), values);
+  }
+
+  get isCalibrating(): boolean {
+    return this.calibrationValues !== null;
   }
 
   getState(): CameraState {
@@ -60,6 +86,12 @@ export class CameraRepSource extends BaseRepSource {
         this.setState({ stage: 'running', body: { tracking: false, phase: 'waiting', value: null }, missing: [] });
         break;
       case 'pose':
+        if (this.calibrationValues) {
+          const value = measure(trackerFor(this.exerciseId, {}).metric, msg.frame);
+          if (value !== null) this.calibrationValues.push(value);
+          this.setState({ stage: 'running', body: this.counter.status(), missing: missingBodyParts(msg.frame, this.exerciseId) });
+          break;
+        }
         for (const event of this.counter.push(msg.frame)) {
           this.emit(event.type === 'reps' ? { type: 'reps', count: event.count, burst: false } : event);
         }
@@ -78,7 +110,8 @@ export class CameraRepSource extends BaseRepSource {
 
   /** Back to "loading" when the camera page is (re)started. */
   restart(): void {
-    this.counter = new RepCounter(TRACKERS[this.exerciseId]);
+    this.counter = new RepCounter(trackerFor(this.exerciseId, this.calibrations));
+    this.calibrationValues = null;
     this.setState({ stage: 'loading' });
   }
 

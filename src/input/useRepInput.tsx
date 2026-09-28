@@ -1,6 +1,8 @@
 import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 
 import { getExercise, type ExerciseId, type InputMode } from '../game';
+import type { Calibrations } from '../pose/calibration';
+import type { TrackerConfig } from '../pose/trackers';
 import { CameraRepControls } from './camera/CameraRepControls';
 import { CameraRepSource } from './CameraRepSource';
 import { ManualRepControls } from './ManualRepControls';
@@ -26,6 +28,10 @@ export function useRepInput({
   hud,
   hideCameraImage,
   onHideCameraImageChange,
+  onSetDone,
+  calibrations,
+  onCalibrated,
+  largeButtons,
 }: {
   mode: InputMode;
   exerciseId: ExerciseId;
@@ -37,6 +43,11 @@ export function useRepInput({
   hud?: ReactNode;
   hideCameraImage: boolean;
   onHideCameraImageChange: (hide: boolean) => void;
+  /** Camera mode: the player says a set is finished. */
+  onSetDone: () => void;
+  calibrations: Calibrations;
+  onCalibrated: (exerciseId: ExerciseId, tracker: TrackerConfig | null) => void;
+  largeButtons: boolean;
 }): RepInput {
   const [manual] = useState(() => new ManualRepSource());
   const [camera] = useState(() => new CameraRepSource(exerciseId));
@@ -45,6 +56,7 @@ export function useRepInput({
     if (!active) manual.stopTimer();
   }, [active, manual]);
   useEffect(() => () => void manual.stopTimer(), [manual]);
+  useEffect(() => camera.setCalibrations(calibrations), [camera, calibrations]);
 
   if (mode === 'camera') {
     return {
@@ -57,6 +69,10 @@ export function useRepInput({
           hud={hud}
           hideImage={hideCameraImage}
           onHideImageChange={onHideCameraImageChange}
+          onSetDone={onSetDone}
+          calibrated={calibrations[exerciseId] !== undefined}
+          onCalibrated={(tracker) => onCalibrated(exerciseId, tracker)}
+          largeButtons={largeButtons}
         />
       ),
     };
@@ -69,6 +85,7 @@ export function useRepInput({
         unit={getExercise(exerciseId).unit}
         repsPerPress={repsPerPress}
         onRepsPerPressChange={onRepsPerPressChange}
+        largeButtons={largeButtons}
       />
     ),
   };
