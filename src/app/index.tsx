@@ -85,6 +85,8 @@ export default function CombatScreen() {
     repsPerPress: settings.repsPerPress,
     onRepsPerPressChange: (repsPerPress) => updateSettings({ repsPerPress }),
     hud,
+    hideCameraImage: settings.hideCameraImage,
+    onHideCameraImageChange: (hideCameraImage) => updateSettings({ hideCameraImage }),
   });
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 

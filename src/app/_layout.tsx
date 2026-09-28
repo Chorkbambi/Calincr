@@ -10,6 +10,7 @@ import { ActivityIndicator, View, type ColorValue } from 'react-native';
 import { GameProvider } from '../state/GameProvider';
 import { DATABASE_NAME, migrateDatabase } from '../storage/database';
 import { TabIcon, type TabIconName } from '../ui/components/TabIcon';
+import { WelcomeModal } from '../ui/components/WelcomeModal';
 import { colors, fonts } from '../ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -56,6 +57,7 @@ export default function RootLayout() {
           <Tabs.Screen name="calendar" options={{ title: 'Calendar', tabBarIcon: icon('calendar') }} />
           <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: icon('settings') }} />
         </Tabs>
+        <WelcomeModal />
       </GameProvider>
     </SQLiteProvider>
   );

@@ -42,8 +42,14 @@ describe('shop', () => {
 });
 
 describe('settings', () => {
-  it('defaults to camera mode, normal difficulty, 1 rep per press', () => {
-    expect(DEFAULT_SETTINGS).toEqual({ inputMode: 'camera', difficulty: 'normal', repsPerPress: 1 });
+  it('defaults to camera mode, normal difficulty, 1 rep per press, not onboarded, camera image shown', () => {
+    expect(DEFAULT_SETTINGS).toEqual({
+      inputMode: 'camera',
+      difficulty: 'normal',
+      repsPerPress: 1,
+      onboarded: false,
+      hideCameraImage: false,
+    });
   });
 
   it('clamps reps per press between 1 and 50', () => {
@@ -54,12 +60,10 @@ describe('settings', () => {
   });
 
   it('restores valid settings and ignores garbage', () => {
-    expect(restoreSettings({ inputMode: 'manual', difficulty: 'advanced', repsPerPress: 10 })).toEqual({
-      inputMode: 'manual',
-      difficulty: 'advanced',
-      repsPerPress: 10,
-    });
-    expect(restoreSettings({ inputMode: 'hack', difficulty: 7, repsPerPress: '5' })).toEqual(DEFAULT_SETTINGS);
+    expect(
+      restoreSettings({ inputMode: 'manual', difficulty: 'advanced', repsPerPress: 10, onboarded: true, hideCameraImage: true }),
+    ).toEqual({ inputMode: 'manual', difficulty: 'advanced', repsPerPress: 10, onboarded: true, hideCameraImage: true });
+    expect(restoreSettings({ inputMode: 'hack', difficulty: 7, repsPerPress: '5', onboarded: 'yes' })).toEqual(DEFAULT_SETTINGS);
     expect(restoreSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
 });

@@ -53,10 +53,15 @@ export function CameraRepControls({
   exerciseId,
   active,
   hud,
+  hideImage,
+  onHideImageChange,
 }: {
   source: CameraRepSource;
   exerciseId: ExerciseId;
   active: boolean;
+  /** Show only the skeleton on black instead of the video image. */
+  hideImage: boolean;
+  onHideImageChange: (hide: boolean) => void;
   /** Fight info shown on top of the camera (enemy, HP…). */
   hud?: ReactNode;
 }) {
@@ -160,6 +165,10 @@ export function CameraRepControls({
         <GoldButton big label="Start camera" onPress={start} disabled={!active} />
         <Text style={styles.muted}>🔒 Analysed on your phone. Nothing is recorded, saved or sent.</Text>
         <Text style={styles.muted}>📴 {OFFLINE_NOTICE}</Text>
+        <Text style={styles.muted}>
+          🙈 Rather not see yourself? The “Image” button on the camera screen shows only a stick figure
+          {hideImage ? ' (currently: image hidden).' : '.'}
+        </Text>
       </Panel>
 
       <Modal
@@ -176,6 +185,7 @@ export function CameraRepControls({
             originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
             onShouldStartLoadWithRequest={allowOnlyCameraPage}
             ref={webViewRef}
+            injectedJavaScriptBeforeContentLoaded={`window.__hideVideo=${hideImage ? 'true' : 'false'};true;`}
             onMessage={(event: WebViewMessageEvent) => {
               const msg = source.handleMessage(event.nativeEvent.data);
               if (msg?.type === 'needAssets') {
@@ -204,6 +214,9 @@ export function CameraRepControls({
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{statusText(state)}</Text>
               </View>
+              <View style={styles.privacyBadge}>
+                <Text style={styles.privacyText}>🔒 Not recorded · stays on this phone</Text>
+              </View>
             </View>
             <View style={styles.bottom}>
               <View style={styles.counterRow}>
@@ -227,6 +240,16 @@ export function CameraRepControls({
               </View>
               {undoShown ? <Text style={styles.undo}>{UNDO_MESSAGE}</Text> : null}
               <View style={styles.row}>
+                <GoldButton
+                  label={hideImage ? '🙈 Image: off' : '👁 Image: on'}
+                  variant="stone"
+                  style={styles.flex}
+                  onPress={() => {
+                    const next = !hideImage;
+                    onHideImageChange(next);
+                    webViewRef.current?.injectJavaScript(`window.__setHideVideo(${next ? 'true' : 'false'});true;`);
+                  }}
+                />
                 <GoldButton label={landscape ? '⟲ Portrait' : '⟳ Rotate'} variant="stone" style={styles.flex} onPress={rotate} />
                 <GoldButton label="Stop camera" variant="danger" style={styles.flex} onPress={stop} />
               </View>
@@ -253,6 +276,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(27,21,16,0.72)',
   },
   badge: { alignSelf: 'center', backgroundColor: 'rgba(27,21,16,0.8)', borderRadius: radius.md, paddingVertical: 6, paddingHorizontal: spacing.md },
+  privacyBadge: {
+    alignSelf: 'center',
+    backgroundColor: 'rgba(27,21,16,0.8)',
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.goldDark,
+    paddingVertical: 3,
+    paddingHorizontal: spacing.sm,
+  },
+  privacyText: { color: colors.goldLight, fontSize: 11 },
   badgeText: { color: colors.parchment, fontFamily: fonts.title, fontSize: 13, textAlign: 'center' },
   counterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   exerciseName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 16, flexShrink: 1 },

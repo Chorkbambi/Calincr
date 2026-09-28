@@ -8,8 +8,7 @@
     "userInterfaceStyle": "dark",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.chorkbambi.calincr",
-      "buildNumber": "1"
+      "bundleIdentifier": "com.chorkbambi.calincr"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +19,6 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.chorkbambi.calincr",
-      "versionCode": 1,
       "permissions": [
         "android.permission.CAMERA"
       ],

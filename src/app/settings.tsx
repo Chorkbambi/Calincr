@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -6,6 +7,7 @@ import type { Difficulty, InputMode } from '../game';
 import { useGame } from '../state/GameProvider';
 import { GoldButton } from '../ui/components/GoldButton';
 import { Panel } from '../ui/components/Panel';
+import { PrivacyPolicyModal } from '../ui/components/PrivacyPolicyModal';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 
 function Choice<T extends string>({
@@ -63,6 +65,7 @@ const DIFFICULTIES: { value: Difficulty; label: string; description: string }[] 
 
 export default function SettingsScreen() {
   const { settings, updateSettings, resetProgress } = useGame();
+  const [policyOpen, setPolicyOpen] = useState(false);
 
   const confirmReset = () => {
     Alert.alert(
@@ -109,6 +112,9 @@ export default function SettingsScreen() {
           </Text>
           <Text style={styles.text}>• The camera is switched off as soon as you leave the Fight tab.</Text>
           <Text style={styles.text}>• Prefer not to film yourself? Choose Manual mode above.</Text>
+          <Text style={styles.text}>• In camera mode, the “Image” button hides your picture and shows only a stick figure.</Text>
+          <Text style={styles.text}>• The app never uses the microphone.</Text>
+          <GoldButton label="Read the privacy policy" variant="stone" onPress={() => setPolicyOpen(true)} />
         </Panel>
 
         <Panel title="Progress">
@@ -128,6 +134,7 @@ export default function SettingsScreen() {
           <Text style={styles.muted}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </Panel>
       </ScrollView>
+      <PrivacyPolicyModal visible={policyOpen} onClose={() => setPolicyOpen(false)} />
     </SafeAreaView>
   );
 }

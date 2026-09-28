@@ -7,9 +7,19 @@ export interface Settings {
   difficulty: Difficulty;
   /** Manual mode: reps added by one press of the Rep button. */
   repsPerPress: number;
+  /** The player has chosen camera or manual mode on first launch. */
+  onboarded: boolean;
+  /** Camera mode: show only the skeleton on black, not the video image. */
+  hideCameraImage: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { inputMode: 'camera', difficulty: 'normal', repsPerPress: 1 };
+export const DEFAULT_SETTINGS: Settings = {
+  inputMode: 'camera',
+  difficulty: 'normal',
+  repsPerPress: 1,
+  onboarded: false,
+  hideCameraImage: false,
+};
 
 export function clampRepsPerPress(value: number): number {
   if (!Number.isFinite(value)) return DEFAULT_SETTINGS.repsPerPress;
@@ -27,5 +37,7 @@ export function restoreSettings(raw: unknown): Settings {
         ? r.difficulty
         : DEFAULT_SETTINGS.difficulty,
     repsPerPress: typeof r.repsPerPress === 'number' ? clampRepsPerPress(r.repsPerPress) : DEFAULT_SETTINGS.repsPerPress,
+    onboarded: r.onboarded === true,
+    hideCameraImage: r.hideCameraImage === true,
   };
 }

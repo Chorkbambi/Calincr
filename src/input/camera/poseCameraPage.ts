@@ -53,6 +53,13 @@ let landmarker = null;
 let lastSent = 0;
 let lastNoPose = 0;
 
+// "Hide my image": the video is still analysed but not shown; only the skeleton is drawn on black.
+function setHideVideo(hide) {
+  video.style.visibility = hide ? 'hidden' : 'visible';
+}
+window.__setHideVideo = setHideVideo;
+setHideVideo(window.__hideVideo === true);
+
 function stop() {
   if (stream) stream.getTracks().forEach((t) => t.stop());
   stream = null;

@@ -25,6 +25,12 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - Tout message de la WebView est validé strictement (`src/pose/messages.ts`) ; toute sauvegarde relue est validée
   (`restoreState`, `restoreSettings`). Requêtes SQL toujours paramétrées.
 - La caméra est coupée dès qu'on quitte l'onglet Fight (la WebView est démontée).
+- Premier lancement : écran de bienvenue (`WelcomeModal`) où le joueur choisit caméra ou manuel (réglage `onboarded`).
+- Bouton « Image on/off » sur la caméra plein écran : n'affiche que le squelette sur fond noir (réglage `hideCameraImage`,
+  `window.__setHideVideo` dans la page). Badge permanent « 🔒 Not recorded ».
+- Politique de confidentialité : `src/ui/content/privacyPolicy.ts` (affichée dans Settings et l'écran de bienvenue),
+  copie dans `PRIVACY.md` — garder les deux identiques. Le dépôt reste privé : pour les stores, il faudra héberger
+  cette politique ailleurs (page web publique).
 - Ne jamais ajouter d'analytics, de pub, de SDK tiers qui envoie des données, ni de logs contenant des données de posture.
 
 ## Nom et publication
@@ -32,7 +38,8 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - Nom affiché : **Calincr**. Identifiant : `com.chorkbambi.calincr` (Android `package` et iOS `bundleIdentifier`
   dans `app.json`) — ne plus le changer après une première publication.
 - `eas.json` : profil `preview` = APK Android installable directement (tests gratuits), `production` = app bundle
-  pour Google Play. Permissions Android limitées à la caméra (micro bloqué).
+  pour Google Play. Numéro de version (`versionCode`) géré par EAS (`appVersionSource: remote`, `autoIncrement`) :
+  ne pas le remettre dans `app.json`. Mises à jour = nouveau build installé par-dessus (pas d'EAS Update : l'app ne doit pas utiliser internet). Permissions Android limitées à la caméra (micro bloqué).
 - La base de données s'appelle toujours `cali-incr.db` (la renommer effacerait les sauvegardes).
 
 ## Stack

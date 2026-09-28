@@ -87,7 +87,9 @@ npx tsc --noEmit    # vérification TypeScript
    La première fois, accepte de créer le projet EAS et de générer la clé de signature Android (laisse EAS la gérer).
 3. À la fin (10 à 20 min), la commande affiche un lien et un QR code : ouvre-le sur le téléphone Android,
    télécharge l'APK et installe-le (Android demandera d'autoriser l'installation depuis le navigateur).
-4. Pour des testeurs : envoie-leur le même lien. Google limite progressivement l'installation d'apps de développeurs
+4. **Mettre à jour** : refais `git pull`, `npm install`, puis la même commande de build, et installe le nouvel APK
+   par-dessus l'ancien. La progression est conservée. Le numéro de version augmente automatiquement.
+5. Pour des testeurs : envoie-leur le même lien. Google limite progressivement l'installation d'apps de développeurs
    non vérifiés ; le compte gratuit « limited distribution » de Google permet jusqu'à 20 appareils.
 
 Identifiant de l'app : `com.chorkbambi.calincr` (Android et iOS). Il ne pourra plus changer après la première
@@ -119,5 +121,8 @@ L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer un
   corps doivent être visibles. La caméra s'ouvre en plein écran ; le bouton **Rotate** passe en paysage (pratique
   pour les pompes ou le gainage). Elle s'arrête avec **Stop camera**, en changeant d'exercice ou en quittant l'onglet.
 - Place le téléphone de profil, à environ 2 m (chaque exercice indique où le placer).
+- Au premier lancement, l'app demande de choisir entre caméra et mode manuel.
+- Sur l'écran caméra, le bouton **Image: on/off** cache ton image (seul un bonhomme est affiché).
+- Politique de confidentialité : dans Settings, et dans [`PRIVACY.md`](PRIVACY.md).
 - Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
   (et tu peux choisir combien de reps chaque appui ajoute).

@@ -24,6 +24,8 @@ export function useRepInput({
   repsPerPress,
   onRepsPerPressChange,
   hud,
+  hideCameraImage,
+  onHideCameraImageChange,
 }: {
   mode: InputMode;
   exerciseId: ExerciseId;
@@ -33,6 +35,8 @@ export function useRepInput({
   onRepsPerPressChange: (value: number) => void;
   /** Fight info shown over the full-screen camera. */
   hud?: ReactNode;
+  hideCameraImage: boolean;
+  onHideCameraImageChange: (hide: boolean) => void;
 }): RepInput {
   const [manual] = useState(() => new ManualRepSource());
   const [camera] = useState(() => new CameraRepSource(exerciseId));
@@ -43,7 +47,19 @@ export function useRepInput({
   useEffect(() => () => void manual.stopTimer(), [manual]);
 
   if (mode === 'camera') {
-    return { source: camera, controls: <CameraRepControls source={camera} exerciseId={exerciseId} active={active} hud={hud} /> };
+    return {
+      source: camera,
+      controls: (
+        <CameraRepControls
+          source={camera}
+          exerciseId={exerciseId}
+          active={active}
+          hud={hud}
+          hideImage={hideCameraImage}
+          onHideImageChange={onHideCameraImageChange}
+        />
+      ),
+    };
   }
   return {
     source: manual,
