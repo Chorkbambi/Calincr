@@ -77,10 +77,21 @@ npx tsc --noEmit    # vérification TypeScript
 - Pour ajouter une dépendance : `npx expo install <paquet>` (et vérifier qu'elle est incluse dans Expo Go).
 - Architecture, règles du jeu et conventions : voir [`CLAUDE.md`](CLAUDE.md).
 
-## Écrans
+## Écrans (l'app est en anglais)
 
-1. **Combat** — boss, barre de PV, dégâts par coup, choix de l'exercice, bouton « Répétition »,
-   « Ajouter un nombre », chronomètre pour le gainage.
-2. **Personnage** — épée, niveau / XP / état de repos de chaque muscle, dégâts totaux, boss vaincus.
-3. **Calendrier** — vue mensuelle colorée selon le volume, détail d'un jour, totaux par semaine et par mois.
-4. **Réglages** — réinitialiser la progression, à propos.
+1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, conseil du jour, choix de l'exercice
+   (bouton « How to » pour l'explication), comptage des répétitions par la caméra ou à la main.
+2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
+   recommandés), niveaux / XP / état de repos, boss vaincus.
+3. **Shop** — acheter et équiper de meilleures épées avec l'or gagné sur les monstres.
+4. **Calendar** — vue mensuelle colorée selon le volume, détail d'un jour, totaux par semaine et par mois.
+5. **Settings** — mode caméra ou manuel, difficulté (Beginner / Normal / Advanced), vie privée, réinitialisation.
+
+## Mode caméra et vie privée
+
+- La caméra frontale filme pendant que tu fais l'exercice ; la détection de posture (Google MediaPipe) tourne
+  **sur le téléphone**. La vidéo n'est jamais enregistrée ni envoyée : seules les répétitions comptées sont gardées.
+- La première fois, l'app télécharge la bibliothèque de détection (quelques Mo) : il faut internet à ce moment-là.
+- Place le téléphone de profil, à environ 2 m, tout le corps visible (chaque exercice indique où le placer).
+- Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
+  (et tu peux choisir combien de reps chaque appui ajoute).
