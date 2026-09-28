@@ -1,4 +1,4 @@
-# Cali-Incr
+# Calincr
 
 Application de fitness gamifiée : chaque répétition de pompes, squats, tractions… est un coup d'épée
 contre un boss. Tes muscles montent de niveau, tes dégâts augmentent, et le repos est récompensé.
@@ -76,6 +76,24 @@ npx tsc --noEmit    # vérification TypeScript
   [`src/game/config.ts`](src/game/config.ts).
 - Pour ajouter une dépendance : `npx expo install <paquet>` (et vérifier qu'elle est incluse dans Expo Go).
 - Architecture, règles du jeu et conventions : voir [`CLAUDE.md`](CLAUDE.md).
+
+## Installer l'app Android sur ton téléphone (gratuit, sans Play Store)
+
+1. Crée un compte gratuit sur <https://expo.dev> (le même que pour Expo Go) et connecte-toi : `npx expo login`.
+2. Lance la compilation dans le cloud d'Expo (gratuit dans la limite du plan gratuit) :
+   ```powershell
+   npx eas-cli@latest build --platform android --profile preview
+   ```
+   La première fois, accepte de créer le projet EAS et de générer la clé de signature Android (laisse EAS la gérer).
+3. À la fin (10 à 20 min), la commande affiche un lien et un QR code : ouvre-le sur le téléphone Android,
+   télécharge l'APK et installe-le (Android demandera d'autoriser l'installation depuis le navigateur).
+4. Pour des testeurs : envoie-leur le même lien. Google limite progressivement l'installation d'apps de développeurs
+   non vérifiés ; le compte gratuit « limited distribution » de Google permet jusqu'à 20 appareils.
+
+Identifiant de l'app : `com.chorkbambi.calincr` (Android et iOS). Il ne pourra plus changer après la première
+publication sur un store.
+
+L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer une vraie app ; en attendant, utilise Expo Go.
 
 ## Écrans (l'app est en anglais)
 

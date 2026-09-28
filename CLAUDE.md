@@ -1,4 +1,4 @@
-# CLAUDE.md — Cali-Incr
+# CLAUDE.md — Calincr
 
 Application mobile de fitness gamifiée (Ring Fit × jeu incrémental) pour iPhone et Android.
 Chaque répétition réelle d'un exercice au poids du corps = un coup d'épée contre le monstre en cours.
@@ -26,6 +26,14 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
   (`restoreState`, `restoreSettings`). Requêtes SQL toujours paramétrées.
 - La caméra est coupée dès qu'on quitte l'onglet Fight (la WebView est démontée).
 - Ne jamais ajouter d'analytics, de pub, de SDK tiers qui envoie des données, ni de logs contenant des données de posture.
+
+## Nom et publication
+
+- Nom affiché : **Calincr**. Identifiant : `com.chorkbambi.calincr` (Android `package` et iOS `bundleIdentifier`
+  dans `app.json`) — ne plus le changer après une première publication.
+- `eas.json` : profil `preview` = APK Android installable directement (tests gratuits), `production` = app bundle
+  pour Google Play. Permissions Android limitées à la caméra (micro bloqué).
+- La base de données s'appelle toujours `cali-incr.db` (la renommer effacerait les sauvegardes).
 
 ## Stack
 

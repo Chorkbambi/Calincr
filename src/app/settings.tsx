@@ -118,7 +118,7 @@ export default function SettingsScreen() {
 
         <Panel title="About">
           <Text style={styles.text}>
-            Cali-Incr turns bodyweight training into a fight: every rep is a sword strike. Your muscles gain XP, and each
+            Calincr turns bodyweight training into a fight: every rep is a sword strike. Your muscles gain XP, and each
             hit deals the sum of their levels. Beat 10 monsters, then the boss, to reach the next level.
           </Text>
           <Text style={styles.text}>
