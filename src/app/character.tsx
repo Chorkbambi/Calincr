@@ -22,6 +22,7 @@ import {
   type RecoveryStatus,
 } from '../game';
 import { useGame } from '../state/GameProvider';
+import { AchievementsPanel } from '../ui/components/AchievementsPanel';
 import { BodyMap } from '../ui/components/BodyMap';
 import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { Panel } from '../ui/components/Panel';
@@ -141,6 +142,8 @@ export default function CharacterScreen() {
             ×1.5. Training the same muscle several days in a row tires it out.
           </Text>
         </Panel>
+
+        <AchievementsPanel state={state} />
 
         <Panel title={`Hall of fame · ${formatNumber(killCount)} enemies slain`}>
           {bossKills.length === 0 ? (

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,8 +18,16 @@ const ERRORS: Record<ShopError, string> = {
 };
 
 export default function ShopScreen() {
-  const { state, buy, equip } = useGame();
+  const { state, buy, equip, pendingAchievements, clearPendingAchievements } = useGame();
   const [notice, setNotice] = useState<string | null>(null);
+  const [trophy, setTrophy] = useState<string | null>(null);
+
+  // Achievements unlocked by a purchase (e.g. "Armorer") are announced here, once.
+  useEffect(() => {
+    if (pendingAchievements.length === 0) return;
+    setTrophy(pendingAchievements.map((a) => `🏆 ${a.name} (+${formatNumber(a.gold)} gold)`).join('\n'));
+    clearPendingAchievements();
+  }, [pendingAchievements, clearPendingAchievements]);
   const levels = totalLevels(state);
 
   const act = (result: ShopError | null, success: string) => setNotice(result ? ERRORS[result] : success);
@@ -33,6 +41,7 @@ export default function ShopScreen() {
         </View>
         <Text style={styles.muted}>Every monster drops gold. Bosses drop much more. Better swords multiply your damage.</Text>
         {notice ? <Text style={styles.notice}>{notice}</Text> : null}
+        {trophy ? <Text style={styles.notice}>{trophy}</Text> : null}
 
         {WEAPONS.map((weapon, index) => {
           const owned = state.ownedWeapons.includes(weapon.id as WeaponId);

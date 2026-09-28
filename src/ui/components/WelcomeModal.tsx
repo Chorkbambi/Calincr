@@ -1,11 +1,42 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import type { InputMode } from '../../game';
+import { ONBOARDING_VERSION, REST_TIMER_CHOICES, type InputMode } from '../../game';
 import { useGame } from '../../state/GameProvider';
+import { restTimerLabel } from '../format';
 import { colors, fonts, radius, spacing } from '../theme';
 import { GoldButton } from './GoldButton';
 import { PrivacyPolicyModal } from './PrivacyPolicyModal';
+
+const TUTORIAL: { icon: string; title: string; lines: string[] }[] = [
+  {
+    icon: '⚔️',
+    title: 'Every rep is a strike',
+    lines: [
+      'Pick an exercise and train for real: each rep hits the monster in front of you.',
+      'Your muscles gain XP and level up. Each hit deals the sum of your muscle levels.',
+      'Beat 10 monsters, then the boss, to reach the next level. Keep hitting fast for a combo bonus.',
+    ],
+  },
+  {
+    icon: '🛌',
+    title: 'Rest is rewarded',
+    lines: [
+      'A muscle trained several days in a row earns less XP (Tired).',
+      'A muscle rested for a few days earns up to ×1.5 XP (Rested).',
+      'Tap a muscle on the Hero screen to see which exercises train it.',
+    ],
+  },
+  {
+    icon: '📜',
+    title: 'Your daily quest',
+    lines: [
+      'Each day the app suggests one exercise, with a goal based on your last session.',
+      'Complete it for bonus XP and gold, and keep your streak going.',
+      'Spend gold in the Shop on better swords. Unlock achievements for extra gold.',
+    ],
+  },
+];
 
 const OPTIONS: { mode: InputMode; title: string; lines: string[] }[] = [
   {
@@ -25,54 +56,112 @@ const OPTIONS: { mode: InputMode; title: string; lines: string[] }[] = [
   },
 ];
 
-/** First launch: the player chooses how reps are counted, before the camera is ever mentioned by the system. */
+/** First launch (or new onboarding version): short tutorial, then rep counting and rest timer choices. */
 export function WelcomeModal() {
   const { settings, updateSettings } = useGame();
-  const [choice, setChoice] = useState<InputMode | null>(null);
+  const visible = settings.onboardingVersion < ONBOARDING_VERSION;
+  const returning = settings.onboardingVersion > 0;
+  const [step, setStep] = useState(0);
+  const [choice, setChoice] = useState<InputMode | null>(returning ? settings.inputMode : null);
+  const [restTimer, setRestTimer] = useState<number | null>(null);
   const [policyOpen, setPolicyOpen] = useState(false);
 
+  useEffect(() => {
+    if (returning) setChoice(settings.inputMode);
+  }, [returning, settings.inputMode]);
+
+  const last = TUTORIAL.length;
+  const finish = () => {
+    if (choice === null || restTimer === null) return;
+    updateSettings({ inputMode: choice, restTimerSeconds: restTimer, onboardingVersion: ONBOARDING_VERSION });
+  };
+
   return (
-    <Modal visible={!settings.onboarded} animationType="fade" presentationStyle="fullScreen">
+    <Modal visible={visible} animationType="fade" presentationStyle="fullScreen">
       <View style={styles.screen}>
+        <View style={styles.dots}>
+          {[...TUTORIAL, null].map((_, i) => (
+            <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
+          ))}
+        </View>
         <ScrollView contentContainerStyle={styles.content}>
-          <Text style={styles.title}>Welcome to Calincr</Text>
-          <Text style={styles.text}>
-            Every real rep you do is a sword strike against a monster. How do you want your reps to be counted?
-          </Text>
-          {OPTIONS.map((o) => {
-            const selected = choice === o.mode;
-            return (
-              <Pressable
-                key={o.mode}
-                onPress={() => setChoice(o.mode)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-                style={[styles.card, selected && styles.cardSelected]}
-              >
-                <Text style={[styles.cardTitle, selected && styles.cardTitleSelected]}>
-                  {selected ? '◉ ' : '○ '}
-                  {o.title}
+          {step === 0 && <Text style={styles.title}>Welcome to Calincr</Text>}
+          {step < last ? (
+            <>
+              <Text style={styles.icon}>{TUTORIAL[step].icon}</Text>
+              <Text style={styles.heading}>{TUTORIAL[step].title}</Text>
+              {TUTORIAL[step].lines.map((line) => (
+                <Text key={line} style={styles.text}>
+                  {line}
                 </Text>
-                {o.lines.map((line) => (
-                  <Text key={line} style={styles.line}>
-                    {line}
-                  </Text>
-                ))}
+              ))}
+            </>
+          ) : (
+            <>
+              <Text style={styles.heading}>How do you want your reps to be counted?</Text>
+              {OPTIONS.map((o) => {
+                const selected = choice === o.mode;
+                return (
+                  <Pressable
+                    key={o.mode}
+                    onPress={() => setChoice(o.mode)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    style={[styles.card, selected && styles.cardSelected]}
+                  >
+                    <Text style={[styles.cardTitle, selected && styles.cardTitleSelected]}>
+                      {selected ? '◉ ' : '○ '}
+                      {o.title}
+                    </Text>
+                    {o.lines.map((line) => (
+                      <Text key={line} style={styles.line}>
+                        {line}
+                      </Text>
+                    ))}
+                  </Pressable>
+                );
+              })}
+              <Text style={styles.heading}>Would you like a rest timer between sets?</Text>
+              <Text style={styles.line}>
+                When you tap “Finish set”, a countdown tells you when to start the next one.
+              </Text>
+              <View style={styles.timerRow}>
+                {REST_TIMER_CHOICES.map((s) => {
+                  const selected = restTimer === s;
+                  return (
+                    <Pressable
+                      key={s}
+                      onPress={() => setRestTimer(s)}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected }}
+                      style={[styles.chip, selected && styles.cardSelected]}
+                    >
+                      <Text style={[styles.chipText, selected && styles.cardTitleSelected]}>{restTimerLabel(s)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <Text style={styles.muted}>You can change all of this at any time in Settings.</Text>
+              <Pressable onPress={() => setPolicyOpen(true)} accessibilityRole="link">
+                <Text style={styles.link}>Read the privacy policy</Text>
               </Pressable>
-            );
-          })}
-          <Text style={styles.muted}>You can change this at any time in Settings.</Text>
-          <Pressable onPress={() => setPolicyOpen(true)} accessibilityRole="link">
-            <Text style={styles.link}>Read the privacy policy</Text>
-          </Pressable>
+            </>
+          )}
         </ScrollView>
-        <GoldButton
-          big
-          label="Let’s fight"
-          disabled={choice === null}
-          style={styles.button}
-          onPress={() => choice && updateSettings({ inputMode: choice, onboarded: true })}
-        />
+        <View style={styles.buttons}>
+          {step > 0 && <GoldButton label="Back" variant="stone" style={styles.flex} onPress={() => setStep(step - 1)} />}
+          {step < last ? (
+            <GoldButton big label="Next" style={styles.flex} onPress={() => setStep(step + 1)} />
+          ) : (
+            <GoldButton
+              big
+              label="Let’s fight"
+              style={styles.flex}
+              disabled={choice === null || restTimer === null}
+              onPress={finish}
+            />
+          )}
+        </View>
       </View>
       <PrivacyPolicyModal visible={policyOpen} onClose={() => setPolicyOpen(false)} />
     </Modal>
@@ -82,8 +171,13 @@ export function WelcomeModal() {
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, paddingTop: 60, paddingBottom: spacing.xl },
   content: { padding: spacing.lg, gap: spacing.md },
+  dots: { flexDirection: 'row', justifyContent: 'center', gap: 8 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.border },
+  dotActive: { backgroundColor: colors.gold },
   title: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 28 },
-  text: { color: colors.text, fontSize: 16, lineHeight: 22 },
+  icon: { fontSize: 56, textAlign: 'center' },
+  heading: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 20 },
+  text: { color: colors.text, fontSize: 17, lineHeight: 24 },
   card: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -96,7 +190,20 @@ const styles = StyleSheet.create({
   cardTitle: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 18 },
   cardTitleSelected: { color: colors.goldLight },
   line: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  timerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chip: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.stone,
+    borderRadius: radius.md,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  chipText: { color: colors.text, fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 13 },
   link: { color: colors.goldLight, fontSize: 14, textDecorationLine: 'underline' },
-  button: { marginHorizontal: spacing.lg },
+  buttons: { flexDirection: 'row', gap: spacing.sm, marginHorizontal: spacing.lg },
+  flex: { flex: 1 },
 });

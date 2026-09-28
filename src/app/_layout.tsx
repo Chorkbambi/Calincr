@@ -10,6 +10,7 @@ import { ActivityIndicator, View, type ColorValue } from 'react-native';
 import { GameProvider } from '../state/GameProvider';
 import { DATABASE_NAME, migrateDatabase } from '../storage/database';
 import { TabIcon, type TabIconName } from '../ui/components/TabIcon';
+import { WeeklyRecapModal } from '../ui/components/WeeklyRecapModal';
 import { WelcomeModal } from '../ui/components/WelcomeModal';
 import { colors, fonts } from '../ui/theme';
 
@@ -58,6 +59,7 @@ export default function RootLayout() {
           <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: icon('settings') }} />
         </Tabs>
         <WelcomeModal />
+        <WeeklyRecapModal />
       </GameProvider>
     </SQLiteProvider>
   );
