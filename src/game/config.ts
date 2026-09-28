@@ -200,3 +200,27 @@ export const QUEST = {
   goldPerMonsterHp: 1.5,
   minGold: 10,
 } as const;
+
+/** Combo: hits with less than windowMs between them chain; every hitsPerStep hits add bonusPerStep damage (capped). */
+export const COMBO = {
+  windowMs: 10_000,
+  hitsPerStep: 5,
+  bonusPerStep: 0.05,
+  maxBonus: 0.5,
+} as const;
+
+/** Achievement reward = max(minGold, round(HP of the current level's first monster × goldPerTier[tier])). */
+export const ACHIEVEMENT_REWARDS = {
+  goldPerTier: { 1: 2, 2: 5, 3: 12 },
+  minGold: 20,
+} as const;
+
+/** Rest timer choices offered in the app (seconds, 0 = off). */
+export const REST_TIMER_CHOICES = [0, 30, 60, 90, 120] as const;
+
+/** Camera calibration: record the player for this long while they do slow reps (or hold). */
+export const CALIBRATION = {
+  durationMs: 15_000,
+  /** Thresholds sit this far inside the player's measured range (0.25 = a quarter from each end). */
+  margin: 0.25,
+} as const;

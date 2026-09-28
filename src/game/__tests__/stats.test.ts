@@ -49,7 +49,7 @@ describe('recordWork', () => {
     let current = recordWork(null, a.outcome, now, newId);
     const b = applyWork(state, 'pushup', { kind: 'reps', count: 2 }, now);
     current = recordWork(current, b.outcome, now, newId);
-    expect(current).toMatchObject({ id: 'set-1', amount: 5, hits: 5, damage: 50 });
+    expect(current).toMatchObject({ id: 'set-1', amount: 5, hits: 5, damage: 51 }); // 5th hit gets the +5% combo bonus
     expect(current.xpByMuscle.chest).toBeCloseTo(25);
     expect(current.multiplierByMuscle).toEqual({ chest: 1, triceps: 1, shoulders: 1 });
 

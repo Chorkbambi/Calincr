@@ -1,7 +1,8 @@
 import { MUSCLE_IDS, STARTING_WEAPON, type WeaponId } from './config';
 import { createEnemy, enemyMaxHp } from './enemy';
-import { createInitialState, type GameState } from './engine';
+import { createInitialState, EMPTY_LIFETIME, type GameState } from './engine';
 import { isWeaponId } from './shop';
+import { ACHIEVEMENTS } from './achievements';
 
 type Loose = Record<string, unknown>;
 
@@ -51,5 +52,29 @@ export function restoreState(raw: unknown): GameState {
   }
 
   state.pendingHitSeconds = Math.max(0, num(raw.pendingHitSeconds, 0));
+
+  if (isObject(raw.combo)) {
+    state.combo = { count: int(raw.combo.count, 0, 0), lastHitAt: Math.max(0, num(raw.combo.lastHitAt, 0)) };
+  }
+
+  const life = isObject(raw.lifetime) ? raw.lifetime : {};
+  state.lifetime = {
+    reps: int(life.reps, 0, 0),
+    holdSeconds: int(life.holdSeconds, 0, 0),
+    kills: int(life.kills, 0, 0),
+    bosses: int(life.bosses, 0, 0),
+    questsCompleted: int(life.questsCompleted, 0, 0),
+    bestQuestStreak: int(life.bestQuestStreak, 0, 0),
+    activeDays: int(life.activeDays, 0, 0),
+    lastActiveDay:
+      typeof life.lastActiveDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(life.lastActiveDay)
+        ? life.lastActiveDay
+        : EMPTY_LIFETIME.lastActiveDay,
+  };
+
+  const known = new Set(ACHIEVEMENTS.map((a) => a.id));
+  state.achievements = Array.isArray(raw.achievements)
+    ? [...new Set(raw.achievements.filter((a): a is string => typeof a === 'string' && known.has(a)))]
+    : [];
   return state;
 }

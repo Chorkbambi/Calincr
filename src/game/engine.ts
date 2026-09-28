@@ -1,5 +1,6 @@
 import {
   COMBAT,
+  COMBO,
   MUSCLE_IDS,
   PROGRESSION,
   STARTING_WEAPON,
@@ -27,7 +28,35 @@ export interface GameState {
   enemy: EnemyState;
   /** Seconds of timed exercise not yet turned into a hit. */
   pendingHitSeconds: number;
+  /** Hits chained without a long pause (lastHitAt = ms timestamp). */
+  combo: { count: number; lastHitAt: number };
+  /** Lifetime counters (achievements, recap). */
+  lifetime: LifetimeStats;
+  /** Unlocked achievement ids. */
+  achievements: string[];
 }
+
+export interface LifetimeStats {
+  reps: number;
+  holdSeconds: number;
+  kills: number;
+  bosses: number;
+  questsCompleted: number;
+  bestQuestStreak: number;
+  activeDays: number;
+  lastActiveDay: DayKey | null;
+}
+
+export const EMPTY_LIFETIME: LifetimeStats = {
+  reps: 0,
+  holdSeconds: 0,
+  kills: 0,
+  bosses: 0,
+  questsCompleted: 0,
+  bestQuestStreak: 0,
+  activeDays: 0,
+  lastActiveDay: null,
+};
 
 export function createInitialState(): GameState {
   const muscles = {} as Record<MuscleId, MuscleState>;
@@ -41,7 +70,15 @@ export function createInitialState(): GameState {
     gold: 0,
     enemy: createEnemy(1, 0),
     pendingHitSeconds: 0,
+    combo: { count: 0, lastHitAt: 0 },
+    lifetime: { ...EMPTY_LIFETIME },
+    achievements: [],
   };
+}
+
+/** Damage bonus for a combo of `count` chained hits (0.1 = +10%). */
+export function comboBonus(count: number): number {
+  return Math.min(COMBO.maxBonus, Math.floor(count / COMBO.hitsPerStep) * COMBO.bonusPerStep);
 }
 
 export function totalLevels(state: GameState): number {
@@ -58,6 +95,8 @@ export type WorkInput = { kind: 'reps'; count: number } | { kind: 'seconds'; sec
 
 export interface Hit {
   damage: number;
+  /** Chained hits so far, this one included. */
+  combo: number;
   enemy: EnemyState;
   defeated: boolean;
 }
@@ -85,11 +124,15 @@ export interface WorkOutcome {
 }
 
 function strike(state: GameState, outcome: WorkOutcome, now: Date): void {
-  const damage = hitDamage(state);
+  const t = now.getTime();
+  const chained = t - state.combo.lastHitAt <= COMBO.windowMs && t >= state.combo.lastHitAt;
+  const combo = chained ? state.combo.count + 1 : 1;
+  state.combo = { count: combo, lastHitAt: t };
+  const damage = Math.round(hitDamage(state) * (1 + comboBonus(combo)));
   const enemy = state.enemy;
   const hp = Math.max(0, enemy.hp - damage);
   const defeated = hp === 0;
-  outcome.hits.push({ damage, enemy: { ...enemy, hp }, defeated });
+  outcome.hits.push({ damage, combo, enemy: { ...enemy, hp }, defeated });
   if (!defeated) {
     state.enemy = { ...enemy, hp };
     return;
@@ -105,6 +148,8 @@ function strike(state: GameState, outcome: WorkOutcome, now: Date): void {
   });
   outcome.goldEarned += gold;
   state.gold += gold;
+  state.lifetime.kills += 1;
+  if (isBossStage(enemy.stage)) state.lifetime.bosses += 1;
   state.enemy = nextEnemy(enemy);
 }
 
@@ -128,6 +173,9 @@ export function applyWork(
     muscles: { ...previous.muscles },
     ownedWeapons: [...previous.ownedWeapons],
     enemy: { ...previous.enemy },
+    combo: { ...previous.combo },
+    lifetime: { ...previous.lifetime },
+    achievements: [...previous.achievements],
   };
   const outcome: WorkOutcome = {
     exerciseId,
@@ -141,6 +189,13 @@ export function applyWork(
     goldEarned: 0,
   };
   if (units === 0) return { state, outcome };
+
+  if (exercise.unit === 'seconds') state.lifetime.holdSeconds += units;
+  else state.lifetime.reps += units;
+  if (state.lifetime.lastActiveDay !== day) {
+    state.lifetime.activeDays += 1;
+    state.lifetime.lastActiveDay = day;
+  }
 
   const weights = muscleWeights(exercise);
   for (const [muscle] of weights) {

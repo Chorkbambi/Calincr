@@ -1,7 +1,7 @@
 import { WEAPONS } from '../config';
 import { applyWork, createInitialState, hitDamage } from '../engine';
 import { buyWeapon, equipWeapon } from '../shop';
-import { DEFAULT_SETTINGS, clampRepsPerPress, restoreSettings } from '../settings';
+import { DEFAULT_SETTINGS, clampRepsPerPress, restoreSettings, sortByFavorites } from '../settings';
 
 describe('shop', () => {
   it('sells swords in increasing price and power', () => {
@@ -42,13 +42,18 @@ describe('shop', () => {
 });
 
 describe('settings', () => {
-  it('defaults to camera mode, normal difficulty, 1 rep per press, not onboarded, camera image shown', () => {
+  it('has sensible defaults', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       inputMode: 'camera',
       difficulty: 'normal',
       repsPerPress: 1,
-      onboarded: false,
+      onboardingVersion: 0,
       hideCameraImage: false,
+      restTimerSeconds: 0,
+      reminder: { enabled: false, hour: 18, minute: 0 },
+      favorites: [],
+      largeButtons: false,
+      lastRecapWeek: null,
     });
   });
 
@@ -60,10 +65,40 @@ describe('settings', () => {
   });
 
   it('restores valid settings and ignores garbage', () => {
+    const valid = {
+      inputMode: 'manual',
+      difficulty: 'advanced',
+      repsPerPress: 10,
+      onboardingVersion: 2,
+      hideCameraImage: true,
+      restTimerSeconds: 90,
+      reminder: { enabled: true, hour: 7, minute: 30 },
+      favorites: ['pushup', 'squat'],
+      largeButtons: true,
+      lastRecapWeek: '2026-09-21',
+    };
+    expect(restoreSettings(valid)).toEqual(valid);
     expect(
-      restoreSettings({ inputMode: 'manual', difficulty: 'advanced', repsPerPress: 10, onboarded: true, hideCameraImage: true }),
-    ).toEqual({ inputMode: 'manual', difficulty: 'advanced', repsPerPress: 10, onboarded: true, hideCameraImage: true });
-    expect(restoreSettings({ inputMode: 'hack', difficulty: 7, repsPerPress: '5', onboarded: 'yes' })).toEqual(DEFAULT_SETTINGS);
+      restoreSettings({
+        inputMode: 'hack',
+        difficulty: 7,
+        repsPerPress: '5',
+        restTimerSeconds: 45,
+        reminder: { enabled: 'yes', hour: 25, minute: -1 },
+        favorites: ['pushup', 'teleport', 'pushup', 3],
+        lastRecapWeek: 'monday',
+      }),
+    ).toEqual({ ...DEFAULT_SETTINGS, favorites: ['pushup'] });
     expect(restoreSettings(null)).toEqual(DEFAULT_SETTINGS);
+  });
+
+  it('migrates the old boolean onboarding flag', () => {
+    expect(restoreSettings({ onboarded: true }).onboardingVersion).toBe(1);
+    expect(restoreSettings({}).onboardingVersion).toBe(0);
+  });
+
+  it('puts favourite exercises first, in pin order', () => {
+    const items = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'd' }];
+    expect(sortByFavorites(items, ['c', 'a']).map((i) => i.id)).toEqual(['c', 'a', 'b', 'd']);
   });
 });

@@ -1,6 +1,6 @@
 import { COMBAT, ENEMIES, MUSCLE_IDS } from '../config';
 import { createEnemy, enemyMaxHp, enemyName, goldReward, isBossStage, nextEnemy } from '../enemy';
-import { applyWork, createInitialState, hitDamage, totalLevels, type GameState } from '../engine';
+import { applyWork, comboBonus, createInitialState, hitDamage, totalLevels, type GameState } from '../engine';
 import { zoneForLevel } from '../zones';
 
 const NOW = new Date(2026, 2, 10, 18, 0, 0); // local 2026-03-10
@@ -78,7 +78,7 @@ describe('enemies and levels', () => {
 describe('applyWork', () => {
   it('turns each rep into one hit, then grants XP', () => {
     const { state, outcome } = applyWork(createInitialState(), 'pushup', { kind: 'reps', count: 1 }, NOW);
-    expect(outcome.hits).toEqual([{ damage: 10, enemy: { level: 1, stage: 0, hp: 10, maxHp: 20 }, defeated: false }]);
+    expect(outcome.hits).toEqual([{ damage: 10, combo: 1, enemy: { level: 1, stage: 0, hp: 10, maxHp: 20 }, defeated: false }]);
     expect(state.enemy.hp).toBe(10);
     expect(outcome.xpByMuscle).toEqual({ chest: 5, triceps: 3, shoulders: 2 });
     expect(state.muscles.chest.xp).toBe(5);
@@ -111,10 +111,19 @@ describe('applyWork', () => {
 
   it('uses levels gained during the set for later hits', () => {
     // Calf raises: 4 XP per rep to calves, level 2 reached at 50 XP = 13 reps.
-    const strong = { ...createInitialState(), enemy: { ...createEnemy(50, 0) } };
-    const { outcome } = applyWork(strong, 'calf_raise', { kind: 'reps', count: 14 }, NOW);
-    expect(outcome.hits[12]?.damage).toBe(10);
-    expect(outcome.hits[13]?.damage).toBe(11);
+    let state: GameState = { ...createInitialState(), enemy: { ...createEnemy(50, 0) } };
+    const damages: number[] = [];
+    let levelUps: unknown[] = [];
+    // One rep every 20 s: too slow for combos, so only levels change the damage.
+    for (let i = 0; i < 14; i++) {
+      const r = applyWork(state, 'calf_raise', { kind: 'reps', count: 1 }, new Date(NOW.getTime() + i * 20_000));
+      state = r.state;
+      damages.push(r.outcome.hits[0]!.damage);
+      levelUps = [...levelUps, ...r.outcome.levelUps];
+    }
+    expect(damages[12]).toBe(10);
+    expect(damages[13]).toBe(11);
+    const outcome = { levelUps };
     expect(outcome.levelUps).toEqual([{ muscle: 'calves', level: 2 }]);
   });
 
@@ -167,5 +176,41 @@ describe('applyWork', () => {
     expect(applyWork(initial, 'pushup', { kind: 'reps', count: Number.NaN }, NOW).outcome.amount).toBe(0);
     applyWork(initial, 'pushup', { kind: 'reps', count: 50 }, NOW);
     expect(initial).toEqual(snapshot);
+  });
+});
+
+describe('combo', () => {
+  it('chains quick hits and adds +5% damage every 5 hits, capped', () => {
+    expect(comboBonus(4)).toBe(0);
+    expect(comboBonus(5)).toBeCloseTo(0.05);
+    expect(comboBonus(12)).toBeCloseTo(0.1);
+    expect(comboBonus(1000)).toBeCloseTo(0.5);
+    const strong = { ...createInitialState(), enemy: createEnemy(50, 0) };
+    const { outcome } = applyWork(strong, 'crunch', { kind: 'reps', count: 10 }, NOW);
+    expect(outcome.hits.map((h) => h.combo)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(outcome.hits[3]?.damage).toBe(10);
+    expect(outcome.hits[4]?.damage).toBe(Math.round(10 * 1.05));
+    expect(outcome.hits[9]?.damage).toBe(11);
+  });
+
+  it('breaks after a long pause', () => {
+    const first = applyWork(createInitialState(), 'crunch', { kind: 'reps', count: 1 }, NOW);
+    const soon = applyWork(first.state, 'crunch', { kind: 'reps', count: 1 }, new Date(NOW.getTime() + 5_000));
+    expect(soon.outcome.hits[0]?.combo).toBe(2);
+    const late = applyWork(soon.state, 'crunch', { kind: 'reps', count: 1 }, new Date(NOW.getTime() + 60_000));
+    expect(late.outcome.hits[0]?.combo).toBe(1);
+  });
+});
+
+describe('lifetime stats', () => {
+  it('counts reps, hold seconds, kills, bosses and active days', () => {
+    let state = createInitialState();
+    state = applyWork(state, 'pushup', { kind: 'reps', count: 3 }, NOW).state;
+    state = applyWork(state, 'plank', { kind: 'seconds', seconds: 20 }, NOW).state;
+    state = applyWork(state, 'squat', { kind: 'reps', count: 2 }, new Date(2026, 2, 11, 9)).state;
+    expect(state.lifetime).toMatchObject({ reps: 5, holdSeconds: 20, activeDays: 2, lastActiveDay: '2026-03-11' });
+    expect(state.lifetime.kills).toBeGreaterThan(0);
+    const bossRun = applyWork(withLevels(createInitialState(), 100), 'squat', { kind: 'reps', count: 11 }, NOW).state;
+    expect(bossRun.lifetime).toMatchObject({ kills: 11, bosses: 1 });
   });
 });

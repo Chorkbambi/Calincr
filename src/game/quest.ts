@@ -128,7 +128,16 @@ export function applyQuestReward(
   state: GameState,
   quest: DailyQuest,
 ): { state: GameState; levelUps: { muscle: MuscleId; level: number }[] } {
-  const next: GameState = { ...state, muscles: { ...state.muscles }, gold: state.gold + quest.rewardGold };
+  const next: GameState = {
+    ...state,
+    muscles: { ...state.muscles },
+    gold: state.gold + quest.rewardGold,
+    lifetime: {
+      ...state.lifetime,
+      questsCompleted: state.lifetime.questsCompleted + 1,
+      bestQuestStreak: Math.max(state.lifetime.bestQuestStreak, quest.streak + 1),
+    },
+  };
   const levelUps: { muscle: MuscleId; level: number }[] = [];
   for (const [muscle, weight] of muscleWeights(getExercise(quest.exerciseId))) {
     const current = next.muscles[muscle];

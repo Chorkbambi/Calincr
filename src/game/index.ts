@@ -14,3 +14,5 @@ export * from './stats';
 export * from './recommend';
 export * from './serialization';
 export * from './quest';
+export * from './achievements';
+export * from './recap';
