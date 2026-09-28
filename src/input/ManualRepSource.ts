@@ -20,15 +20,10 @@ export class ManualRepSource extends BaseRepSource {
     super();
   }
 
-  /** One tap on the big "Répétition" button. */
-  tapRep(): void {
-    this.emit({ type: 'reps', count: 1, burst: false });
-  }
-
-  /** "Ajouter un nombre": a whole series at once. */
-  addReps(count: number): void {
+  /** One press of the big Rep button, worth `count` reps (the player's "reps per press" setting). */
+  pressRep(count = 1): void {
     const n = Math.floor(count);
-    if (n > 0) this.emit({ type: 'reps', count: n, burst: true });
+    if (n > 0) this.emit({ type: 'reps', count: n, burst: n > 1 });
   }
 
   get isTiming(): boolean {

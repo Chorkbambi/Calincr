@@ -34,7 +34,15 @@
           "backgroundColor": "#1b1510"
         }
       ],
-      "expo-status-bar"
+      "expo-status-bar",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cali-Incr uses the camera to count your reps. The video is analysed on your phone and never recorded or sent.",
+          "microphonePermission": false,
+          "recordAudioAndroid": false
+        }
+      ]
     ],
     "scheme": "caliincr",
     "backgroundColor": "#1b1510"

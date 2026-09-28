@@ -1,19 +1,31 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { ExerciseUnit } from '../game';
+import { clampRepsPerPress, type ExerciseUnit } from '../game';
 import { GoldButton } from '../ui/components/GoldButton';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import type { ManualRepSource } from './ManualRepSource';
 
 const clock = (s: number) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
+export const UNDO_MESSAGE = 'Made a mistake? Too bad — you’ll have to make up for it!';
+
 /** On-screen controls feeding a ManualRepSource. */
-export function ManualRepControls({ source, unit }: { source: ManualRepSource; unit: ExerciseUnit }) {
+export function ManualRepControls({
+  source,
+  unit,
+  repsPerPress,
+  onRepsPerPressChange,
+}: {
+  source: ManualRepSource;
+  unit: ExerciseUnit;
+  repsPerPress: number;
+  onRepsPerPressChange: (value: number) => void;
+}) {
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
-  const [typing, setTyping] = useState(false);
-  const [count, setCount] = useState('');
+  const [undoShown, setUndoShown] = useState(false);
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(
     () =>
@@ -28,72 +40,81 @@ export function ManualRepControls({ source, unit }: { source: ManualRepSource; u
   useEffect(() => {
     source.stopTimer();
     setElapsed(0);
-    setTyping(false);
   }, [source, unit]);
+
+  useEffect(() => () => void (undoTimer.current && clearTimeout(undoTimer.current)), []);
+
+  // There is deliberately no real undo: a wrong entry must be made up for.
+  const undo = () => {
+    setUndoShown(true);
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    undoTimer.current = setTimeout(() => setUndoShown(false), 3000);
+  };
+
+  const undoRow = (
+    <>
+      <GoldButton label="↶ Undo" variant="stone" onPress={undo} />
+      {undoShown ? <Text style={styles.undo}>{UNDO_MESSAGE}</Text> : null}
+    </>
+  );
 
   if (unit === 'seconds') {
     return (
       <View style={styles.box}>
-        <Text style={styles.timer} accessibilityLabel={`Chronomètre ${elapsed} secondes`}>
+        <Text style={styles.timer} accessibilityLabel={`Stopwatch ${elapsed} seconds`}>
           {clock(elapsed)}
         </Text>
         <GoldButton
           big
-          label={running ? 'Arrêter' : 'Démarrer'}
+          label={running ? 'Stop' : 'Start'}
           variant={running ? 'danger' : 'gold'}
           onPress={() => (running ? source.stopTimer() : source.startTimer())}
         />
+        {undoRow}
       </View>
     );
   }
 
-  const submit = () => {
-    const n = parseInt(count, 10);
-    if (Number.isFinite(n) && n > 0) source.addReps(Math.min(n, 999));
-    setCount('');
-    setTyping(false);
-  };
+  const step = (delta: number) => onRepsPerPressChange(clampRepsPerPress(repsPerPress + delta));
 
   return (
     <View style={styles.box}>
-      <GoldButton big label="Répétition" onPress={() => source.tapRep()} />
-      {typing ? (
-        <View style={styles.row}>
-          <TextInput
-            style={styles.input}
-            value={count}
-            onChangeText={(t) => setCount(t.replace(/[^0-9]/g, ''))}
-            keyboardType="number-pad"
-            placeholder="Nombre de rép."
-            placeholderTextColor={colors.textMuted}
-            autoFocus
-            maxLength={3}
-            onSubmitEditing={submit}
-            returnKeyType="done"
-          />
-          <GoldButton label="Valider" onPress={submit} />
-          <GoldButton label="✕" variant="stone" onPress={() => setTyping(false)} />
+      <GoldButton big label={repsPerPress > 1 ? `Rep ×${repsPerPress}` : 'Rep'} onPress={() => source.pressRep(repsPerPress)} />
+      <View style={styles.row}>
+        <Text style={styles.label}>Reps per press</Text>
+        <View style={styles.stepper}>
+          <Pressable accessibilityLabel="Fewer reps per press" onPress={() => step(-1)} onLongPress={() => step(-5)} style={styles.stepButton}>
+            <Text style={styles.stepText}>−</Text>
+          </Pressable>
+          <Text style={styles.stepValue}>{repsPerPress}</Text>
+          <Pressable accessibilityLabel="More reps per press" onPress={() => step(1)} onLongPress={() => step(5)} style={styles.stepButton}>
+            <Text style={styles.stepText}>+</Text>
+          </Pressable>
         </View>
-      ) : (
-        <GoldButton label="Ajouter un nombre" variant="stone" onPress={() => setTyping(true)} />
-      )}
+      </View>
+      {undoRow}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   box: { gap: spacing.sm },
-  row: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
-  input: {
-    flex: 1,
-    backgroundColor: colors.parchment,
-    color: colors.ink,
+  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  label: { color: colors.textMuted, fontFamily: fonts.title, fontSize: 13 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  stepButton: {
+    width: 40,
+    height: 40,
     borderRadius: radius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    fontSize: 18,
-    fontFamily: fonts.body,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.stoneLight,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  stepText: { color: colors.goldLight, fontSize: 22, fontFamily: fonts.titleBold },
+  stepValue: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 20, minWidth: 36, textAlign: 'center' },
+  undo: { color: colors.tired, fontFamily: fonts.title, fontSize: 14, textAlign: 'center' },
   timer: {
     color: colors.goldLight,
     fontFamily: fonts.titleBold,
