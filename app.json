@@ -55,6 +55,12 @@
       "expo-sharing"
     ],
     "scheme": "calincr",
-    "backgroundColor": "#1b1510"
+    "backgroundColor": "#1b1510",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7090c913-2a3d-4612-bd4a-0769074b195c"
+      }
+    }
   }
 }
