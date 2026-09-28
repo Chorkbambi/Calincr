@@ -1,6 +1,7 @@
-import { bossMaxHp, bossName, createBoss } from '../boss';
-import { COMBAT, MUSCLE_IDS, WEAPONS } from '../config';
+import { COMBAT, ENEMIES, MUSCLE_IDS } from '../config';
+import { createEnemy, enemyMaxHp, enemyName, goldReward, isBossStage, nextEnemy } from '../enemy';
 import { applyWork, createInitialState, hitDamage, totalLevels, type GameState } from '../engine';
+import { zoneForLevel } from '../zones';
 
 const NOW = new Date(2026, 2, 10, 18, 0, 0); // local 2026-03-10
 
@@ -11,72 +12,109 @@ const withLevels = (state: GameState, level: number): GameState => {
 };
 
 describe('damage', () => {
-  it('starts at 10 (10 muscles at level 1) with the ×1 starter sword', () => {
+  it('starts at 10 (10 muscles at level 1) with the ×1 starting sword', () => {
     const state = createInitialState();
-    expect(WEAPONS[state.weaponId].damageMultiplier).toBe(1);
+    expect(state.weaponId).toBe('rusty_sword');
     expect(totalLevels(state)).toBe(10);
     expect(hitDamage(state)).toBe(10);
   });
 
   it('is the sum of all muscle levels × weapon multiplier', () => {
     const state = createInitialState();
-    const muscles = { ...state.muscles, chest: { ...state.muscles.chest, level: 5 }, calves: { ...state.muscles.calves, level: 3 } };
+    const muscles = {
+      ...state.muscles,
+      chest: { ...state.muscles.chest, level: 5 },
+      calves: { ...state.muscles.calves, level: 3 },
+    };
     expect(hitDamage({ ...state, muscles })).toBe(5 + 3 + 8);
     expect(hitDamage(withLevels(state, 4))).toBe(40);
+    expect(hitDamage({ ...withLevels(state, 4), weaponId: 'iron_sword', ownedWeapons: ['rusty_sword', 'iron_sword'] })).toBe(60);
   });
 });
 
-describe('boss progression', () => {
-  it('follows round(20 × 1.35^index)', () => {
-    expect(bossMaxHp(0)).toBe(20);
-    expect(bossMaxHp(1)).toBe(27);
-    expect(bossMaxHp(2)).toBe(Math.round(20 * 1.35 ** 2)); // 36
-    expect(bossMaxHp(10)).toBe(Math.round(20 * 1.35 ** 10));
+describe('enemies and levels', () => {
+  it('follows the HP formula, the boss being the 11th fight', () => {
+    expect(enemyMaxHp(1, 0)).toBe(20);
+    expect(enemyMaxHp(1, 1)).toBe(Math.round(20 * 1.08));
+    expect(enemyMaxHp(2, 0)).toBe(Math.round(20 * 1.6));
+    expect(isBossStage(ENEMIES.monstersPerLevel)).toBe(true);
+    expect(enemyMaxHp(1, 10)).toBe(Math.round(20 * (1 + 10 * 0.08) * 4));
   });
 
-  it('creates a boss at full health', () => {
-    expect(createBoss(3)).toEqual({ index: 3, hp: bossMaxHp(3), maxHp: bossMaxHp(3) });
+  it('goes through 10 monsters, then the boss, then the next level forever', () => {
+    let enemy = createEnemy(1, 0);
+    const seen: string[] = [];
+    for (let i = 0; i < 23; i++) {
+      seen.push(`${enemy.level}.${enemy.stage}`);
+      enemy = nextEnemy(enemy);
+    }
+    expect(seen.slice(0, 12)).toEqual(['1.0', '1.1', '1.2', '1.3', '1.4', '1.5', '1.6', '1.7', '1.8', '1.9', '1.10', '2.0']);
+    expect(seen[22]).toBe('3.0');
+    expect(nextEnemy(createEnemy(999, 10))).toEqual(createEnemy(1000, 0));
   });
 
-  it('names bosses and cycles with numerals', () => {
-    expect(bossName(0)).toBe('Golem de paille');
-    expect(bossName(12)).toBe('Golem de paille II');
+  it('drops gold, more for bosses', () => {
+    expect(goldReward(createEnemy(1, 0))).toBe(5);
+    expect(goldReward({ stage: 0, maxHp: 1 })).toBe(1);
+    const boss = createEnemy(1, 10);
+    expect(goldReward(boss)).toBe(Math.round(boss.maxHp * 0.25) * 2);
+  });
+
+  it('changes zone every 10 levels and loops with a numeral', () => {
+    expect(zoneForLevel(1).title).toBe('Whispering Meadows');
+    expect(zoneForLevel(10).title).toBe('Whispering Meadows');
+    expect(zoneForLevel(11).title).toBe('Gloomwood Forest');
+    expect(zoneForLevel(81).title).toBe('Whispering Meadows II');
+    expect(zoneForLevel(81).number).toBe(8);
+  });
+
+  it('names monsters from the zone roster and bosses from the boss list', () => {
+    expect(zoneForLevel(1).monsters).toContain(enemyName(1, 0));
+    expect(zoneForLevel(1).bosses).toContain(enemyName(1, 10));
+    expect(zoneForLevel(15).monsters).toContain(enemyName(15, 3));
   });
 });
 
 describe('applyWork', () => {
   it('turns each rep into one hit, then grants XP', () => {
     const { state, outcome } = applyWork(createInitialState(), 'pushup', { kind: 'reps', count: 1 }, NOW);
-    expect(outcome.hits).toEqual([{ damage: 10, bossIndex: 0, bossHpAfter: 10, bossMaxHp: 20, defeated: false }]);
-    expect(state.boss.hp).toBe(10);
+    expect(outcome.hits).toEqual([{ damage: 10, enemy: { level: 1, stage: 0, hp: 10, maxHp: 20 }, defeated: false }]);
+    expect(state.enemy.hp).toBe(10);
     expect(outcome.xpByMuscle).toEqual({ chest: 5, triceps: 3, shoulders: 2 });
     expect(state.muscles.chest.xp).toBe(5);
   });
 
-  it('defeats the boss and spawns the next one with more HP', () => {
+  it('defeats the monster, earns gold and spawns the next one', () => {
     const { state, outcome } = applyWork(createInitialState(), 'crunch', { kind: 'reps', count: 2 }, NOW);
     expect(outcome.hits[1]?.defeated).toBe(true);
-    expect(outcome.defeatedBosses).toEqual([{ index: 0, maxHp: 20, defeatedAt: NOW.toISOString() }]);
-    expect(state.boss).toEqual({ index: 1, hp: 27, maxHp: 27 });
+    expect(outcome.kills).toEqual([
+      { level: 1, stage: 0, boss: false, maxHp: 20, gold: 5, defeatedAt: NOW.toISOString() },
+    ]);
+    expect(outcome.goldEarned).toBe(5);
+    expect(state.gold).toBe(5);
+    expect(state.enemy).toEqual(createEnemy(1, 1));
   });
 
-  it('does not carry overkill damage to the next boss', () => {
+  it('does not carry overkill damage to the next enemy', () => {
     const { state } = applyWork(withLevels(createInitialState(), 10), 'crunch', { kind: 'reps', count: 1 }, NOW);
-    expect(state.boss).toEqual(createBoss(1));
+    expect(state.enemy).toEqual(createEnemy(1, 1));
   });
 
-  it('can defeat several bosses in one burst', () => {
-    const { state, outcome } = applyWork(createInitialState(), 'squat', { kind: 'reps', count: 30 }, NOW);
-    expect(outcome.hits).toHaveLength(30);
-    expect(outcome.defeatedBosses.length).toBeGreaterThan(1);
-    expect(state.boss.index).toBe(outcome.defeatedBosses.length);
+  it('can clear a whole level, boss included, in one burst', () => {
+    const strong = withLevels(createInitialState(), 100); // 1000 damage per hit
+    const { state, outcome } = applyWork(strong, 'squat', { kind: 'reps', count: 11 }, NOW);
+    expect(outcome.kills).toHaveLength(11);
+    expect(outcome.kills[10]?.boss).toBe(true);
+    expect(state.enemy).toEqual(createEnemy(2, 0));
+    expect(state.gold).toBe(outcome.kills.reduce((s, k) => s + k.gold, 0));
   });
 
   it('uses levels gained during the set for later hits', () => {
-    // Calf raises: 5 XP per rep to calves, level 2 reached at 50 XP = 10 reps.
-    const { outcome } = applyWork(createInitialState(), 'calf_raise', { kind: 'reps', count: 11 }, NOW);
-    expect(outcome.hits[9]?.damage).toBe(10);
-    expect(outcome.hits[10]?.damage).toBe(11);
+    // Calf raises: 4 XP per rep to calves, level 2 reached at 50 XP = 13 reps.
+    const strong = { ...createInitialState(), enemy: { ...createEnemy(50, 0) } };
+    const { outcome } = applyWork(strong, 'calf_raise', { kind: 'reps', count: 14 }, NOW);
+    expect(outcome.hits[12]?.damage).toBe(10);
+    expect(outcome.hits[13]?.damage).toBe(11);
     expect(outcome.levelUps).toEqual([{ muscle: 'calves', level: 2 }]);
   });
 
@@ -121,11 +159,12 @@ describe('applyWork', () => {
     expect(second.outcome.xpByMuscle.abs).toBeCloseTo(3 * 2 * 0.7);
   });
 
-  it('ignores empty or negative input and never mutates the previous state', () => {
+  it('ignores empty, negative or invalid input and never mutates the previous state', () => {
     const initial = createInitialState();
     const snapshot = JSON.parse(JSON.stringify(initial));
     expect(applyWork(initial, 'pushup', { kind: 'reps', count: 0 }, NOW).outcome.hits).toHaveLength(0);
     expect(applyWork(initial, 'pushup', { kind: 'reps', count: -3 }, NOW).outcome.amount).toBe(0);
+    expect(applyWork(initial, 'pushup', { kind: 'reps', count: Number.NaN }, NOW).outcome.amount).toBe(0);
     applyWork(initial, 'pushup', { kind: 'reps', count: 50 }, NOW);
     expect(initial).toEqual(snapshot);
   });

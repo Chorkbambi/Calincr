@@ -1,4 +1,11 @@
-import { EXERCISES, type ExerciseConfig, type ExerciseId, type MuscleId } from './config';
+import {
+  DIFFICULTY_TIERS,
+  EXERCISES,
+  type Difficulty,
+  type ExerciseConfig,
+  type ExerciseId,
+  type MuscleId,
+} from './config';
 
 export function getExercise(id: ExerciseId): ExerciseConfig {
   const exercise = EXERCISES.find((e) => e.id === id);
@@ -24,4 +31,18 @@ export function splitXp(exercise: ExerciseConfig, units: number): Partial<Record
     result[muscle] = exercise.baseXp * units * weight;
   }
   return result;
+}
+
+/** Exercises offered in a difficulty mode, in catalog order. */
+export function exercisesForDifficulty(difficulty: Difficulty): ExerciseConfig[] {
+  const tiers = DIFFICULTY_TIERS[difficulty];
+  return EXERCISES.filter((e) => tiers.includes(e.tier));
+}
+
+/** Exercises of a difficulty mode that work `muscle`, biggest share first. */
+export function exercisesForMuscle(muscle: MuscleId, difficulty: Difficulty): { exercise: ExerciseConfig; weight: number }[] {
+  return exercisesForDifficulty(difficulty)
+    .map((exercise) => ({ exercise, weight: exercise.muscles[muscle] ?? 0 }))
+    .filter((e) => e.weight > 0)
+    .sort((a, b) => b.weight - a.weight || b.exercise.baseXp - a.exercise.baseXp);
 }

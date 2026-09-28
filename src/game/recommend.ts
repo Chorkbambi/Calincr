@@ -1,7 +1,7 @@
-import { EXERCISES, type ExerciseConfig, type ExerciseId, type MuscleId } from './config';
+import { type Difficulty, type ExerciseConfig, type ExerciseId, type MuscleId } from './config';
 import type { DayKey } from './dates';
 import type { GameState } from './engine';
-import { muscleWeights } from './exercises';
+import { exercisesForDifficulty, muscleWeights } from './exercises';
 import { currentMultiplier } from './recovery';
 
 export interface ExerciseRecommendation {
@@ -29,13 +29,13 @@ export function evaluateExercise(state: GameState, exercise: ExerciseConfig, tod
 }
 
 /**
- * Exercises ranked by how much the rest bonuses boost their XP today.
+ * Exercises of the difficulty mode ranked by how much the rest bonuses boost their XP today.
  * Base XP reflects each exercise's difficulty, so the fair comparison is the
  * bonus (effective multiplier); ties go to the exercise with more XP per rep.
  * Multipliers are locked per day, so the ranking is stable for the whole day.
  */
-export function recommendExercises(state: GameState, today: DayKey): ExerciseRecommendation[] {
-  return EXERCISES.map((e) => evaluateExercise(state, e, today)).sort(
+export function recommendExercises(state: GameState, today: DayKey, difficulty: Difficulty): ExerciseRecommendation[] {
+  return exercisesForDifficulty(difficulty).map((e) => evaluateExercise(state, e, today)).sort(
     (a, b) => b.effectiveMultiplier - a.effectiveMultiplier || b.xpPerUnit - a.xpPerUnit,
   );
 }

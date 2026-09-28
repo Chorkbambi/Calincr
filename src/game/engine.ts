@@ -1,18 +1,18 @@
-import { createBoss, type BossState } from './boss';
 import {
   COMBAT,
   MUSCLE_IDS,
   PROGRESSION,
   STARTING_WEAPON,
-  WEAPONS,
   type ExerciseId,
   type MuscleId,
   type WeaponId,
 } from './config';
 import { toDayKey, type DayKey } from './dates';
+import { createEnemy, goldReward, isBossStage, nextEnemy, type EnemyState } from './enemy';
 import { getExercise, muscleWeights } from './exercises';
 import { addXp } from './progression';
 import { INITIAL_RECOVERY, recoveryForSession, type RecoveryState } from './recovery';
+import { getWeapon } from './shop';
 
 export interface MuscleState extends RecoveryState {
   level: number;
@@ -22,7 +22,9 @@ export interface MuscleState extends RecoveryState {
 export interface GameState {
   muscles: Record<MuscleId, MuscleState>;
   weaponId: WeaponId;
-  boss: BossState;
+  ownedWeapons: WeaponId[];
+  gold: number;
+  enemy: EnemyState;
   /** Seconds of timed exercise not yet turned into a hit. */
   pendingHitSeconds: number;
 }
@@ -32,16 +34,23 @@ export function createInitialState(): GameState {
   for (const id of MUSCLE_IDS) {
     muscles[id] = { level: PROGRESSION.startingLevel, xp: 0, ...INITIAL_RECOVERY };
   }
-  return { muscles, weaponId: STARTING_WEAPON, boss: createBoss(0), pendingHitSeconds: 0 };
+  return {
+    muscles,
+    weaponId: STARTING_WEAPON,
+    ownedWeapons: [STARTING_WEAPON],
+    gold: 0,
+    enemy: createEnemy(1, 0),
+    pendingHitSeconds: 0,
+  };
 }
 
 export function totalLevels(state: GameState): number {
   return MUSCLE_IDS.reduce((sum, id) => sum + state.muscles[id].level, 0);
 }
 
-/** Damage of one sword hit = sum of all muscle levels × weapon multiplier. */
+/** Damage of one sword hit = sum of all muscle levels × weapon multiplier (rounded). */
 export function hitDamage(state: GameState): number {
-  return totalLevels(state) * WEAPONS[state.weaponId].damageMultiplier;
+  return Math.round(totalLevels(state) * getWeapon(state.weaponId).damageMultiplier);
 }
 
 /** Input coming from a RepSource, already bound to the selected exercise. */
@@ -49,15 +58,16 @@ export type WorkInput = { kind: 'reps'; count: number } | { kind: 'seconds'; sec
 
 export interface Hit {
   damage: number;
-  bossIndex: number;
-  bossHpAfter: number;
-  bossMaxHp: number;
+  enemy: EnemyState;
   defeated: boolean;
 }
 
-export interface DefeatedBoss {
-  index: number;
+export interface Kill {
+  level: number;
+  stage: number;
+  boss: boolean;
   maxHp: number;
+  gold: number;
   defeatedAt: string;
 }
 
@@ -70,21 +80,32 @@ export interface WorkOutcome {
   xpByMuscle: Partial<Record<MuscleId, number>>;
   multiplierByMuscle: Partial<Record<MuscleId, number>>;
   levelUps: { muscle: MuscleId; level: number }[];
-  defeatedBosses: DefeatedBoss[];
+  kills: Kill[];
+  goldEarned: number;
 }
 
 function strike(state: GameState, outcome: WorkOutcome, now: Date): void {
   const damage = hitDamage(state);
-  const boss = state.boss;
-  const hpAfter = Math.max(0, boss.hp - damage);
-  const defeated = hpAfter === 0;
-  outcome.hits.push({ damage, bossIndex: boss.index, bossHpAfter: hpAfter, bossMaxHp: boss.maxHp, defeated });
-  if (defeated) {
-    outcome.defeatedBosses.push({ index: boss.index, maxHp: boss.maxHp, defeatedAt: now.toISOString() });
-    state.boss = createBoss(boss.index + 1);
-  } else {
-    state.boss = { ...boss, hp: hpAfter };
+  const enemy = state.enemy;
+  const hp = Math.max(0, enemy.hp - damage);
+  const defeated = hp === 0;
+  outcome.hits.push({ damage, enemy: { ...enemy, hp }, defeated });
+  if (!defeated) {
+    state.enemy = { ...enemy, hp };
+    return;
   }
+  const gold = goldReward(enemy);
+  outcome.kills.push({
+    level: enemy.level,
+    stage: enemy.stage,
+    boss: isBossStage(enemy.stage),
+    maxHp: enemy.maxHp,
+    gold,
+    defeatedAt: now.toISOString(),
+  });
+  outcome.goldEarned += gold;
+  state.gold += gold;
+  state.enemy = nextEnemy(enemy);
 }
 
 /**
@@ -99,12 +120,14 @@ export function applyWork(
   now: Date,
 ): { state: GameState; outcome: WorkOutcome } {
   const exercise = getExercise(exerciseId);
-  const units = Math.max(0, Math.floor(input.kind === 'reps' ? input.count : input.seconds));
+  const raw = input.kind === 'reps' ? input.count : input.seconds;
+  const units = Number.isFinite(raw) ? Math.max(0, Math.floor(raw)) : 0;
   const day = toDayKey(now);
   const state: GameState = {
     ...previous,
     muscles: { ...previous.muscles },
-    boss: { ...previous.boss },
+    ownedWeapons: [...previous.ownedWeapons],
+    enemy: { ...previous.enemy },
   };
   const outcome: WorkOutcome = {
     exerciseId,
@@ -114,7 +137,8 @@ export function applyWork(
     xpByMuscle: {},
     multiplierByMuscle: {},
     levelUps: [],
-    defeatedBosses: [],
+    kills: [],
+    goldEarned: 0,
   };
   if (units === 0) return { state, outcome };
 
