@@ -17,6 +17,10 @@ import {
   QUEST,
   questNeedsRefresh,
   recordWork,
+  seedRecords,
+  spendStreakFreezes,
+  trackRecord,
+  type NewRecord,
   toDayKey,
   type BackupError,
   type DailyQuest,
@@ -37,7 +41,14 @@ import { GameRepository } from '../storage/repository';
 export type UnlockedAchievement = { id: string; name: string; gold: number };
 
 /** Outcome of some work, plus the daily quest reward and achievements it triggered. */
-export type WorkResult = WorkOutcome & { questCompleted: DailyQuest | null; achievements: UnlockedAchievement[] };
+export type WorkResult = WorkOutcome & {
+  questCompleted: DailyQuest | null;
+  achievements: UnlockedAchievement[];
+  record: NewRecord | null;
+};
+
+/** A shop operation: returns the new state or an error. */
+export type ShopOperation = (state: GameState) => { state: GameState } | { error: ShopError };
 
 interface GameContextValue {
   state: GameState;
@@ -54,6 +65,8 @@ interface GameContextValue {
   closeSet(): void;
   buy(weaponId: WeaponId): ShopError | null;
   equip(weaponId: WeaponId): ShopError | null;
+  /** Any other shop operation (gear, cosmetics, streak freeze). */
+  transact(operation: ShopOperation): ShopError | null;
   updateSettings(patch: Partial<Settings>): void;
   resetProgress(): Promise<void>;
   /** Player-specific camera thresholds, per exercise. */
@@ -101,9 +114,17 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([repository.loadState(), repository.loadSettings(), repository.loadQuest(), repository.loadCalibrations()]).then(
-      ([loaded, loadedSettings, loadedQuest, loadedCalibrations]) => {
+    Promise.all([
+      repository.loadState(),
+      repository.loadSettings(),
+      repository.loadQuest(),
+      repository.loadCalibrations(),
+      repository.bestSetByExercise(),
+    ]).then(
+      ([stored, loadedSettings, loadedQuest, loadedCalibrations, bestSets]) => {
         if (cancelled) return;
+        // Saves from before personal records existed: start from the best sets in the history.
+        const loaded = seedRecords(stored, bestSets);
         calibrationsRef.current = loadedCalibrations;
         setCalibrations(loadedCalibrations);
         stateRef.current = loaded;
@@ -134,16 +155,22 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       .then((history) => {
         const current = stateRef.current;
         if (!current || !questNeedsRefresh(questRef.current, today, settingsRef.current.difficulty)) return;
-        const next = createDailyQuest(current, today, settingsRef.current.difficulty, history, questRef.current);
+        const previous = questRef.current;
+        const next = createDailyQuest(current, today, settingsRef.current.difficulty, history, previous);
         questRef.current = next;
         setQuest(next);
+        if (previous?.day !== today && next.freezesUsed > 0) {
+          const frozen = spendStreakFreezes(current, next);
+          commitState(frozen);
+          enqueueSave(() => repository.saveState(frozen));
+        }
         enqueueSave(() => repository.saveQuest(next));
       })
       .catch((error: unknown) => console.warn('Quest creation failed', error))
       .finally(() => {
         questLoading.current = false;
       });
-  }, [repository, enqueueSave]);
+  }, [repository, enqueueSave, commitState]);
 
   useEffect(() => {
     if (state) refreshQuest();
@@ -155,7 +182,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       const now = new Date();
       const result = applyWork(current, exerciseId, input, now);
       let nextState = result.state;
-      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [] };
+      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null };
       let nextQuest: DailyQuest | null = null;
       if (questRef.current) {
         const progressed = progressQuest(questRef.current, result.outcome);
@@ -171,11 +198,17 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
           }
         }
       }
+      const set = result.outcome.amount > 0 ? recordWork(setRef.current, result.outcome, now, newId) : setRef.current;
+      setRef.current = set;
+      if (set && result.outcome.amount > 0) {
+        const tracked = trackRecord(nextState, exerciseId, set.id, set.amount);
+        nextState = tracked.state;
+        outcome.record = tracked.record;
+        if (tracked.record) outcome.goldEarned += tracked.record.gold;
+      }
       const checked = checkAchievements(nextState);
       nextState = checked.state;
       outcome.achievements = checked.unlocked;
-      const set = result.outcome.amount > 0 ? recordWork(setRef.current, result.outcome, now, newId) : setRef.current;
-      setRef.current = set;
       commitState(nextState);
       setOpenSet(set);
       const kills = result.outcome.kills;
@@ -193,9 +226,9 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
     setOpenSet(null);
   }, []);
 
-  const shopAction = useCallback(
-    (action: typeof buyWeapon, weaponId: WeaponId): ShopError | null => {
-      const result = action(stateRef.current ?? createInitialState(), weaponId);
+  const transact = useCallback(
+    (operation: ShopOperation): ShopError | null => {
+      const result = operation(stateRef.current ?? createInitialState());
       if ('error' in result) return result.error;
       const checked = checkAchievements(result.state);
       if (checked.unlocked.length > 0) setPendingAchievements((p) => [...p, ...checked.unlocked]);
@@ -205,8 +238,8 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
     },
     [repository, commitState, enqueueSave],
   );
-  const buy = useCallback((id: WeaponId) => shopAction(buyWeapon, id), [shopAction]);
-  const equip = useCallback((id: WeaponId) => shopAction(equipWeapon, id), [shopAction]);
+  const buy = useCallback((id: WeaponId) => transact((s) => buyWeapon(s, id)), [transact]);
+  const equip = useCallback((id: WeaponId) => transact((s) => equipWeapon(s, id)), [transact]);
 
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => {
@@ -287,6 +320,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
             closeSet,
             buy,
             equip,
+            transact,
             updateSettings,
             resetProgress,
             calibrations,
@@ -309,6 +343,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       closeSet,
       buy,
       equip,
+      transact,
       updateSettings,
       resetProgress,
       calibrations,

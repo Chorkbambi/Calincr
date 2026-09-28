@@ -8,6 +8,7 @@ import {
   restoreState,
   type DailyQuest,
   type DayKey,
+  type ExerciseId,
   type GameState,
   type Kill,
   type SetRecord,
@@ -193,6 +194,24 @@ export class GameRepository {
        GROUP BY s.exercise_id, s.day`,
     );
     return Object.fromEntries(rows.map((r) => [r.exercise_id, { day: r.day, amount: r.amount }]));
+  }
+
+  /** Best single set ever, per exercise (to seed personal records). */
+  async bestSetByExercise(): Promise<Partial<Record<ExerciseId, number>>> {
+    const rows = await this.db.getAllAsync<{ exercise_id: string; best: number }>(
+      'SELECT exercise_id, MAX(amount) AS best FROM sets GROUP BY exercise_id',
+    );
+    const result: Partial<Record<ExerciseId, number>> = {};
+    for (const r of rows) if (isExerciseId(r.exercise_id) && r.best > 0) result[r.exercise_id] = r.best;
+    return result;
+  }
+
+  /** Per training day of one exercise: total and best set, oldest first. */
+  async exerciseDays(exerciseId: ExerciseId): Promise<{ day: DayKey; total: number; best: number }[]> {
+    return this.db.getAllAsync<{ day: string; total: number; best: number }>(
+      'SELECT day, SUM(amount) AS total, MAX(amount) AS best FROM sets WHERE exercise_id = ? GROUP BY day ORDER BY day',
+      exerciseId,
+    );
   }
 
   /** Everything the player has, for a backup file. */
