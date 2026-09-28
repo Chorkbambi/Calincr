@@ -19,10 +19,11 @@ export const colors = {
   heat: ['#2a231c', '#5b4521', '#8a6524', '#b8872c', '#e3b545'],
 } as const;
 
+/** Cinzel (serif, loaded in the root layout) for titles and labels, system font for long text. */
 export const fonts = {
-  title: 'System',
-  titleBold: 'System',
-  body: 'System',
+  title: 'Cinzel_500Medium',
+  titleBold: 'Cinzel_700Bold',
+  body: undefined,
 } as const;
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 } as const;

@@ -1,3 +1,4 @@
+import * as Haptics from 'expo-haptics';
 import { useEffect, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,7 +18,7 @@ import { useGame } from '../state/GameProvider';
 import { BattleArena } from '../ui/components/BattleArena';
 import { GoldButton } from '../ui/components/GoldButton';
 import { Panel } from '../ui/components/Panel';
-import { ProgressBar } from '../ui/components/ProgressBar';
+import { HpBar } from '../ui/components/HpBar';
 import { formatAmount, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
@@ -49,6 +50,7 @@ export default function CombatScreen() {
       source.subscribe((event) => {
         const outcome = work(exerciseRef.current, toWorkInput(event));
         enqueue(outcome.hits, event.type === 'reps' && event.burst);
+        if (outcome.hits.length > 0) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
         const text = describe(outcome);
         if (text) {
           setMessage(text);
@@ -74,7 +76,7 @@ export default function CombatScreen() {
           <View style={styles.bossHeader}>
             <Text style={styles.bossIndex}>Boss n°{boss.index + 1}</Text>
             <Text style={styles.bossName}>{bossName(boss.index)}</Text>
-            <ProgressBar progress={boss.hp / boss.maxHp} color={colors.blood} height={14} />
+            <HpBar hp={boss.hp} maxHp={boss.maxHp} bossIndex={boss.index} />
             <Text style={styles.hp}>
               {formatNumber(boss.hp)} / {formatNumber(boss.maxHp)} PV
             </Text>

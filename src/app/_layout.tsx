@@ -1,11 +1,17 @@
+import { Cinzel_500Medium, Cinzel_700Bold, useFonts } from '@expo-google-fonts/cinzel';
+import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
 import { Tabs } from 'expo-router/js-tabs';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect } from 'react';
+import { ActivityIndicator, View, type ColorValue } from 'react-native';
 
 import { GameProvider } from '../state/GameProvider';
 import { DATABASE_NAME, migrateDatabase } from '../storage/database';
+import { TabIcon, type TabIconName } from '../ui/components/TabIcon';
 import { colors, fonts } from '../ui/theme';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 const Loading = (
   <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>
@@ -13,7 +19,20 @@ const Loading = (
   </View>
 );
 
+const icon =
+  (name: TabIconName) =>
+  ({ color }: { color: ColorValue }) => <TabIcon name={name} color={color} />;
+
 export default function RootLayout() {
+  const [fontsLoaded, fontError] = useFonts({ Cinzel_500Medium, Cinzel_700Bold });
+  const ready = fontsLoaded || fontError !== null;
+
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => {});
+  }, [ready]);
+
+  if (!ready) return null;
+
   return (
     <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDatabase}>
       <GameProvider fallback={Loading}>
@@ -22,16 +41,16 @@ export default function RootLayout() {
           screenOptions={{
             headerShown: false,
             sceneStyle: { backgroundColor: colors.background },
-            tabBarStyle: { backgroundColor: colors.stone, borderTopColor: colors.border },
+            tabBarStyle: { backgroundColor: colors.stone, borderTopColor: colors.goldDark },
             tabBarActiveTintColor: colors.goldLight,
             tabBarInactiveTintColor: colors.textMuted,
-            tabBarLabelStyle: { fontFamily: fonts.title, fontSize: 11 },
+            tabBarLabelStyle: { fontFamily: fonts.title, fontSize: 10 },
           }}
         >
-          <Tabs.Screen name="index" options={{ title: 'Combat' }} />
-          <Tabs.Screen name="character" options={{ title: 'Personnage' }} />
-          <Tabs.Screen name="calendar" options={{ title: 'Calendrier' }} />
-          <Tabs.Screen name="settings" options={{ title: 'Réglages' }} />
+          <Tabs.Screen name="index" options={{ title: 'Combat', tabBarIcon: icon('combat') }} />
+          <Tabs.Screen name="character" options={{ title: 'Personnage', tabBarIcon: icon('character') }} />
+          <Tabs.Screen name="calendar" options={{ title: 'Calendrier', tabBarIcon: icon('calendar') }} />
+          <Tabs.Screen name="settings" options={{ title: 'Réglages', tabBarIcon: icon('settings') }} />
         </Tabs>
       </GameProvider>
     </SQLiteProvider>
