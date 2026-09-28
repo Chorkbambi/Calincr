@@ -16,10 +16,12 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 
 - **Rien de ce que filme la caméra n'est enregistré ni envoyé.** La vidéo reste dans l'élément `<video>` de la WebView ;
   seuls 33 points du corps (nombres) sont transmis à l'app, traités puis jetés. Seuls les compteurs de reps sont sauvegardés.
-- Tout reste sur le téléphone. Seul accès réseau : téléchargement de la bibliothèque MediaPipe (version épinglée,
-  cdn.jsdelivr.net) et du modèle (storage.googleapis.com) au lancement du mode caméra. Aucune donnée envoyée.
-- La page caméra a une Content-Security-Policy stricte (voir `src/input/camera/poseCameraPage.ts`) : elle ne peut
-  contacter que ces deux domaines ; l'app bloque toute navigation de la WebView.
+- Tout reste sur le téléphone et **l'app n'utilise jamais internet**. MediaPipe (code JS, moteur WebAssembly SIMD et
+  modèle, tasks-vision 1.0.1, ~18 Mo) est **embarqué** dans `assets/mediapipe/` et transmis à la page caméra par l'app
+  (`src/input/camera/mediapipeAssets.ts`, base64 en morceaux via injectJavaScript → URLs `blob:` locales).
+- La page caméra a une Content-Security-Policy stricte (voir `src/input/camera/poseCameraPage.ts`) : aucune destination
+  réseau autorisée (seulement `blob:`/`data:`) ; l'app bloque toute navigation de la WebView.
+- Mettre à jour MediaPipe = remplacer les fichiers de `assets/mediapipe/` (voir NOTICE.txt) et retester la page caméra.
 - Tout message de la WebView est validé strictement (`src/pose/messages.ts`) ; toute sauvegarde relue est validée
   (`restoreState`, `restoreSettings`). Requêtes SQL toujours paramétrées.
 - La caméra est coupée dès qu'on quitte l'onglet Fight (la WebView est démontée).
@@ -29,7 +31,8 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 
 - Expo SDK 57 (React Native 0.86, React 19.2), TypeScript `strict`, Expo Router (routes dans `src/app/`).
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
-  expo-haptics, expo-camera (permission uniquement), react-native-webview.
+  expo-haptics, expo-camera (permission uniquement), react-native-webview, expo-screen-orientation,
+  expo-asset + expo-file-system (lecture des fichiers MediaPipe embarqués). `metro.config.js` ajoute les extensions wasm/task/bin.
 - Tests : Jest 29 via `jest-expo` (fichiers `__tests__/*.test.ts`).
 
 ## Commandes
@@ -113,7 +116,7 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
 - **Mode manuel** : le bouton Rep ajoute « reps par appui » (1 à 50). Le bouton Undo n'annule rien : il affiche
   « Made a mistake? Too bad — you'll have to make up for it! » (volontaire).
 - **Mode caméra** : correction manuelle possible (+1 / +5 reps, +5 / +15 s pour les gainages) si la caméra rate des reps ;
-  même faux Undo. L'app explique que le mode caméra a besoin d'internet au démarrage (téléchargement de MediaPipe, ~18 Mo, rien n'est envoyé).
+  même faux Undo. Le mode caméra fonctionne hors ligne (MediaPipe embarqué).
 - **Caméra** : ne démarre qu'après « Start camera » pour l'exercice choisi (écran de préparation qui dit quelles parties
   du corps doivent être visibles, `src/pose/visibility.ts`). Elle s'ouvre en plein écran, image entière (non recadrée),
   avec un bouton Rotate (paysage) ; elle s'arrête si on change d'exercice, quitte l'onglet ou appuie sur Stop.
@@ -147,7 +150,7 @@ Choix faits là où la demande était ambiguë (les plus simples) :
 11. **Quête du jour** : exercice choisi par bonus de repos, pas par XP brute (sinon l'exercice le plus dur serait toujours proposé). Égalité → plus d'XP par rép.
 12. **Difficulté** : Advanced montre aussi les exercices Normal (squats, pompes…), Beginner uniquement les simplifiés. Par défaut : Normal.
 13. **Mode caméra par défaut** ; le mode manuel est un réglage. Changer d'exercice ferme la série.
-14. **Détection caméra** : WebView + MediaPipe Pose Landmarker « lite » (épinglé : tasks-vision 1.0.1, modèle float16/1). Nécessite internet au premier lancement du mode caméra. Seuils de détection par exercice dans `src/pose/trackers.ts` ; certains exercices (mollets, supermans, nordic curls) sont difficiles à détecter et sont à tester.
+14. **Détection caméra** : WebView + MediaPipe Pose Landmarker « lite » (tasks-vision 1.0.1, modèle float16/1), embarqués dans l'app (pas de téléchargement : évite la règle App Store 2.5.2 sur le code téléchargé). Seule la version WebAssembly SIMD est incluse (iOS 16.4+ / WebView Android récente) ; sinon l'app propose le mode manuel. Seuils de détection par exercice dans `src/pose/trackers.ts` ; certains exercices (mollets, supermans, nordic curls) sont difficiles à détecter et sont à tester.
 15. **Pas de bonus de qualité** : une répétition compte seulement si l'amplitude complète est atteinte (seuils), sinon rien. Pas d'XP partielle.
 16. **Épées** : liste finie de 9 épées (×1 à ×25). Au-delà, pas de nouvelle arme pour l'instant.
 17. **Anciennes sauvegardes** : les niveaux des muscles sont conservés, les ennemis repartent du niveau 1.

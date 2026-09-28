@@ -3,12 +3,14 @@ import { LANDMARK_COUNT, type Landmark, type PoseFrame } from './landmarks';
 /** Messages the camera page is allowed to send. Anything else is dropped. */
 export type BridgeMessage =
   | { type: 'ready' }
-  | { type: 'error'; code: 'camera_denied' | 'camera_unavailable' | 'model_failed' | 'unknown' }
+  /** The page asks the app for the bundled MediaPipe files. */
+  | { type: 'needAssets' }
+  | { type: 'error'; code: 'camera_denied' | 'camera_unavailable' | 'model_failed' | 'unsupported' | 'unknown' }
   | { type: 'pose'; frame: PoseFrame }
   | { type: 'nopose'; t: number };
 
 const MAX_MESSAGE_LENGTH = 16_000;
-const ERROR_CODES = new Set(['camera_denied', 'camera_unavailable', 'model_failed', 'unknown']);
+const ERROR_CODES = new Set(['camera_denied', 'camera_unavailable', 'model_failed', 'unsupported', 'unknown']);
 
 const finite = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
@@ -26,6 +28,8 @@ export function parseBridgeMessage(data: unknown): BridgeMessage | null {
   switch (msg.type) {
     case 'ready':
       return { type: 'ready' };
+    case 'needAssets':
+      return { type: 'needAssets' };
     case 'error':
       return { type: 'error', code: typeof msg.code === 'string' && ERROR_CODES.has(msg.code) ? (msg.code as 'unknown') : 'unknown' };
     case 'nopose':

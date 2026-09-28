@@ -42,7 +42,8 @@
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "scheme": "caliincr",
     "backgroundColor": "#1b1510"
