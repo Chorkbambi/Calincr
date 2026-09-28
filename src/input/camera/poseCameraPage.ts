@@ -38,7 +38,7 @@ export const POSE_CAMERA_HTML = `<!doctype html>
 <meta name="referrer" content="no-referrer">
 <style>
   html,body{margin:0;height:100%;background:#1b1510;overflow:hidden}
-  video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+  video,canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform:scaleX(-1)}
 </style>
 </head>
 <body>
@@ -67,9 +67,9 @@ function draw(lm) {
   canvas.height = canvas.clientHeight;
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   if (!lm) return;
-  // Map normalized video coords to the "cover" layout.
+  // Map normalized video coords to the "contain" layout (whole image visible, never cropped).
   const vw = video.videoWidth, vh = video.videoHeight;
-  const scale = Math.max(canvas.width / vw, canvas.height / vh);
+  const scale = Math.min(canvas.width / vw, canvas.height / vh);
   const ox = (canvas.width - vw * scale) / 2, oy = (canvas.height - vh * scale) / 2;
   const px = (p) => [ox + p.x * vw * scale, oy + p.y * vh * scale];
   ctx.strokeStyle = '#f0cf72';
@@ -107,7 +107,7 @@ function loop() {
 
 async function start() {
   try {
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }, audio: false });
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   } catch (e) {
     send({ type: 'error', code: e && e.name === 'NotAllowedError' ? 'camera_denied' : 'camera_unavailable' });
     return;

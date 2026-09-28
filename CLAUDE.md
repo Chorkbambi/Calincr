@@ -108,6 +108,10 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
   « Made a mistake? Too bad — you'll have to make up for it! » (volontaire).
 - **Mode caméra** : correction manuelle possible (+1 / +5 reps, +5 / +15 s pour les gainages) si la caméra rate des reps ;
   même faux Undo. L'app explique que le mode caméra a besoin d'internet au démarrage (téléchargement de MediaPipe, ~18 Mo, rien n'est envoyé).
+- **Caméra** : ne démarre qu'après « Start camera » pour l'exercice choisi (écran de préparation qui dit quelles parties
+  du corps doivent être visibles, `src/pose/visibility.ts`). Elle s'ouvre en plein écran, image entière (non recadrée),
+  avec un bouton Rotate (paysage) ; elle s'arrête si on change d'exercice, quitte l'onglet ou appuie sur Stop.
+  L'app est verrouillée en portrait (expo-screen-orientation) sauf la caméra plein écran.
 - **How to** : chaque exercice a une animation (bonhomme en SVG, `src/ui/exerciseAnimations.ts` : 2 poses interpolées).
 
 ## Conventions

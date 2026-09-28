@@ -1,4 +1,5 @@
 import { Cinzel_500Medium, Cinzel_700Bold, useFonts } from '@expo-google-fonts/cinzel';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import * as SplashScreen from 'expo-splash-screen';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
@@ -12,6 +13,8 @@ import { TabIcon, type TabIconName } from '../ui/components/TabIcon';
 import { colors, fonts } from '../ui/theme';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
+// The app is portrait; only the full-screen camera may rotate to landscape.
+ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
 
 const Loading = (
   <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>

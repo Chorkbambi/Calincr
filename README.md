@@ -97,6 +97,9 @@ npx tsc --noEmit    # vérification TypeScript
 - Si la caméra rate des répétitions, les boutons « +1 rep » / « +5 reps » (ou « +5 s » pour les gainages) permettent
   de corriger à la main. Comme en mode manuel, « Undo » n'annule rien.
 - Le bouton « How to » de chaque exercice montre une petite animation et les étapes.
-- Place le téléphone de profil, à environ 2 m, tout le corps visible (chaque exercice indique où le placer).
+- Choisis d'abord l'exercice, puis appuie sur **Start camera** : l'écran de préparation indique quelles parties du
+  corps doivent être visibles. La caméra s'ouvre en plein écran ; le bouton **Rotate** passe en paysage (pratique
+  pour les pompes ou le gainage). Elle s'arrête avec **Stop camera**, en changeant d'exercice ou en quittant l'onglet.
+- Place le téléphone de profil, à environ 2 m (chaque exercice indique où le placer).
 - Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
   (et tu peux choisir combien de reps chaque appui ajoute).

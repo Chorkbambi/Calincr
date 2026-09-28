@@ -1,6 +1,7 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { EXERCISE_GUIDES, getExercise, MUSCLE_NAMES, muscleWeights, type ExerciseId } from '../../game';
+import { describeBodyParts, requiredBodyParts } from '../../pose/visibility';
 import { colors, fonts, radius, spacing } from '../theme';
 import { ExerciseAnimationView } from './ExerciseAnimationView';
 import { GoldButton } from './GoldButton';
@@ -35,6 +36,9 @@ export function ExerciseGuideModal({ exerciseId, onClose }: { exerciseId: Exerci
             <Text style={styles.text}>{guide.tip}</Text>
             <Text style={styles.heading}>Camera</Text>
             <Text style={styles.text}>{guide.camera}</Text>
+            <Text style={styles.text}>
+              The camera must see your {describeBodyParts(requiredBodyParts(exerciseId!))}.
+            </Text>
             <Text style={styles.warning}>Stop if you feel pain. Warm up before training.</Text>
           </ScrollView>
           <GoldButton label="Got it" onPress={onClose} style={styles.close} />

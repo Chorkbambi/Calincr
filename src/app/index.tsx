@@ -57,15 +57,33 @@ export default function CombatScreen() {
   const [exerciseId, setExerciseId] = useState<ExerciseId>(() => (exercises[0]?.id as ExerciseId) ?? 'pushup');
   const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
+  const { frame, enqueue } = useHitQueue();
+  const [message, setMessage] = useState<string | null>(null);
+  const hudEnemy = frame.enemy ?? state.enemy;
+  const hud = (
+    <View style={styles.hud}>
+      <View style={styles.topRow}>
+        <Text style={styles.hudName} numberOfLines={1}>
+          Lv. {hudEnemy.level} · {enemyName(hudEnemy.level, hudEnemy.stage)}
+          {isBossStage(hudEnemy.stage) ? ' (Boss)' : ''}
+        </Text>
+        <Text style={styles.gold}>🪙 {formatCompact(state.gold)}</Text>
+      </View>
+      <HpBar hp={hudEnemy.hp} maxHp={hudEnemy.maxHp} enemyKey={hudEnemy.level * 1000 + hudEnemy.stage} />
+      <Text style={styles.hp}>
+        {formatNumber(hudEnemy.hp)} / {formatNumber(hudEnemy.maxHp)} HP · {formatNumber(hitDamage(state))} per hit
+      </Text>
+      {message ? <Text style={styles.message}>{message}</Text> : null}
+    </View>
+  );
   const { source, controls } = useRepInput({
     mode: settings.inputMode,
     exerciseId,
     active: focused,
     repsPerPress: settings.repsPerPress,
     onRepsPerPressChange: (repsPerPress) => updateSettings({ repsPerPress }),
+    hud,
   });
-  const { frame, enqueue } = useHitQueue();
-  const [message, setMessage] = useState<string | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectExercise = (id: ExerciseId) => {
@@ -199,6 +217,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  hud: { backgroundColor: 'rgba(27,21,16,0.72)', borderRadius: radius.md, padding: spacing.sm, gap: 4 },
+  hudName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 15, flexShrink: 1 },
   zone: { color: colors.gold, fontFamily: fonts.title, fontSize: 14, letterSpacing: 1 },
   gold: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16 },
   enemyHeader: { gap: spacing.xs },

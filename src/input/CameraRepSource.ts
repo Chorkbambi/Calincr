@@ -3,12 +3,13 @@ import type { BridgeMessage } from '../pose/messages';
 import { parseBridgeMessage } from '../pose/messages';
 import { RepCounter, type CounterStatus } from '../pose/repCounter';
 import { TRACKERS } from '../pose/trackers';
+import { missingBodyParts, type BodyPart } from '../pose/visibility';
 import { BaseRepSource } from './RepSource';
 
 export type CameraState =
   | { stage: 'loading' }
   | { stage: 'error'; code: Extract<BridgeMessage, { type: 'error' }>['code'] }
-  | { stage: 'running'; body: CounterStatus };
+  | { stage: 'running'; body: CounterStatus; missing: BodyPart[] };
 
 /**
  * Reps detected by the camera. Receives validated body points from the camera page,
@@ -48,19 +49,19 @@ export class CameraRepSource extends BaseRepSource {
     if (!msg) return;
     switch (msg.type) {
       case 'ready':
-        this.setState({ stage: 'running', body: this.counter.status() });
+        this.setState({ stage: 'running', body: this.counter.status(), missing: [] });
         return;
       case 'error':
         this.setState({ stage: 'error', code: msg.code });
         return;
       case 'nopose':
-        this.setState({ stage: 'running', body: { tracking: false, phase: 'waiting', value: null } });
+        this.setState({ stage: 'running', body: { tracking: false, phase: 'waiting', value: null }, missing: [] });
         return;
       case 'pose':
         for (const event of this.counter.push(msg.frame)) {
           this.emit(event.type === 'reps' ? { type: 'reps', count: event.count, burst: false } : event);
         }
-        this.setState({ stage: 'running', body: this.counter.status() });
+        this.setState({ stage: 'running', body: this.counter.status(), missing: missingBodyParts(msg.frame, this.exerciseId) });
         return;
     }
   }
@@ -85,7 +86,9 @@ export class CameraRepSource extends BaseRepSource {
       prev.stage !== state.stage ||
       (prev.stage === 'running' &&
         state.stage === 'running' &&
-        (prev.body.tracking !== state.body.tracking || prev.body.phase !== state.body.phase)) ||
+        (prev.body.tracking !== state.body.tracking ||
+          prev.body.phase !== state.body.phase ||
+          prev.missing.join() !== state.missing.join())) ||
       (prev.stage === 'error' && state.stage === 'error' && prev.code !== state.code);
     if (changed) for (const listener of this.stateListeners) listener(state);
   }

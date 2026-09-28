@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactElement } from 'react';
+import { useEffect, useState, type ReactElement, type ReactNode } from 'react';
 
 import { getExercise, type ExerciseId, type InputMode } from '../game';
 import { CameraRepControls } from './camera/CameraRepControls';
@@ -23,6 +23,7 @@ export function useRepInput({
   active,
   repsPerPress,
   onRepsPerPressChange,
+  hud,
 }: {
   mode: InputMode;
   exerciseId: ExerciseId;
@@ -30,6 +31,8 @@ export function useRepInput({
   active: boolean;
   repsPerPress: number;
   onRepsPerPressChange: (value: number) => void;
+  /** Fight info shown over the full-screen camera. */
+  hud?: ReactNode;
 }): RepInput {
   const [manual] = useState(() => new ManualRepSource());
   const [camera] = useState(() => new CameraRepSource(exerciseId));
@@ -40,7 +43,7 @@ export function useRepInput({
   useEffect(() => () => void manual.stopTimer(), [manual]);
 
   if (mode === 'camera') {
-    return { source: camera, controls: <CameraRepControls source={camera} exerciseId={exerciseId} active={active} /> };
+    return { source: camera, controls: <CameraRepControls source={camera} exerciseId={exerciseId} active={active} hud={hud} /> };
   }
   return {
     source: manual,
