@@ -32,6 +32,10 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
   copie dans `PRIVACY.md` — garder les deux identiques. Le dépôt reste privé : pour les stores, il faudra héberger
   cette politique ailleurs (page web publique).
 - Ne jamais ajouter d'analytics, de pub, de SDK tiers qui envoie des données, ni de logs contenant des données de posture.
+- Rappel quotidien : notification **locale** planifiée par le téléphone (expo-notifications, jamais de push ni de jeton).
+- Sauvegarde : fichier JSON exporté via la feuille de partage du téléphone ; l'import est validé strictement
+  (`src/game/backup.ts`, taille max, version) et remplace tout dans une transaction.
+- La calibration caméra ne garde que deux seuils d'angle par exercice (kv `calibrations`), jamais de points du corps.
 
 ## Nom et publication
 
@@ -47,7 +51,8 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - Expo SDK 57 (React Native 0.86, React 19.2), TypeScript `strict`, Expo Router (routes dans `src/app/`).
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
   expo-haptics, expo-camera (permission uniquement), react-native-webview, expo-screen-orientation,
-  expo-asset + expo-file-system (lecture des fichiers MediaPipe embarqués). `metro.config.js` ajoute les extensions wasm/task/bin.
+  expo-asset + expo-file-system (lecture des fichiers MediaPipe embarqués), expo-sharing + expo-document-picker
+  (sauvegarde), expo-notifications (rappel local). `metro.config.js` ajoute les extensions wasm/task/bin.
 - Tests : Jest 29 via `jest-expo` (fichiers `__tests__/*.test.ts`).
 
 ## Commandes
@@ -79,21 +84,27 @@ src/
     stats.ts         calendrier : volume, intensité, totaux semaine/mois
     recommend.ts     exercices classés selon le bonus de repos
     quest.ts         quête du jour : exercice, objectif selon l'historique, récompense, streak
+    achievements.ts  succès (progression, récompense en or selon le palier)
+    recap.ts         récapitulatif de la semaine passée
+    backup.ts        création / validation stricte d'un fichier de sauvegarde
     serialization.ts restauration robuste d'un état sauvegardé
   pose/        Comptage des reps à partir des points du corps (TypeScript pur, testé)
     landmarks.ts, metrics.ts   angles des articulations
     trackers.ts                seuils de détection par exercice (pas de l'équilibrage)
     repCounter.ts              machine à états : reps (hystérésis) ou secondes tenues (gainage)
     messages.ts                validation stricte des messages de la WebView
+    calibration.ts             seuils personnalisés à partir de quelques reps lentes (« Calibrate »)
   input/       Saisie des répétitions
     RepSource.ts         interface RepSource (événements 'reps' et 'seconds')
     CameraRepSource.ts   mode caméra (par défaut) ; camera/ = page WebView + composant
     ManualRepSource.ts   mode manuel : bouton Rep (× reps par appui), chronomètre, faux "Undo"
                          (le mode caméra a aussi des boutons de correction : CameraRepSource.addManually)
     useRepInput.tsx      choisit l'implémentation selon les réglages
+  notifications/ rappel quotidien local (chargé paresseusement, erreurs ignorées)
   storage/     expo-sqlite : migrations (database.ts) et GameRepository (seul endroit qui connaît le schéma)
   state/       GameProvider (contexte React) : applique la logique, sauvegarde, expose l'état aux écrans
-  ui/          thème, formatage, composants (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap…)
+  ui/          thème, formatage, composants (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap, WelcomeModal,
+               WeeklyRecapModal, RestTimer, ComboBadge, AchievementsPanel, BackupPanel…)
   app/         écrans Expo Router : index (Fight), character (Hero), shop, calendar, settings
 ```
 
@@ -136,6 +147,15 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
   du corps doivent être visibles, `src/pose/visibility.ts`). Elle s'ouvre en plein écran, image entière (non recadrée),
   avec un bouton Rotate (paysage) ; elle s'arrête si on change d'exercice, quitte l'onglet ou appuie sur Stop.
   L'app est verrouillée en portrait (expo-screen-orientation) sauf la caméra plein écran.
+- **Combo** : des coups espacés de moins de 10 s s'enchaînent ; +5 % de dégâts tous les 5 coups, plafond +50 % (`COMBO`).
+- **Succès** (`achievements.ts`) : 17 succès, récompense en or = PV du 1er monstre du niveau × 2 / 5 / 12 selon le palier
+  (min. 20). Stats à vie dans `GameState.lifetime`.
+- **Minuteur de repos** : après « Finish set », compte à rebours (off / 30 / 60 / 90 / 120 s), demandé au premier lancement.
+- **Favoris** : exercices épinglés en tête de liste ; « Last time » affiche la dernière séance de chaque exercice.
+- **Récap de la semaine** : affiché une fois à la première ouverture d'une nouvelle semaine (s'il y a eu de l'entraînement).
+- **Premier lancement** : 3 écrans de tutoriel puis choix caméra/manuel et minuteur. `ONBOARDING_VERSION` (settings.ts) :
+  l'augmenter pour remontrer le tutoriel à tous.
+- **Accessibilité** : réglage « Large buttons » ; le texte suit la taille de police du téléphone.
 - **How to** : chaque exercice a une animation (bonhomme en SVG, `src/ui/exerciseAnimations.ts` : 2 poses interpolées).
 
 ## Conventions
@@ -145,7 +165,8 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
 - `src/game/` et `src/pose/` ne doivent jamais importer React, React Native ou Expo. Toute nouvelle règle y est testée.
 - Les fonctions de `src/game/` sont pures : elles reçoivent `now: Date` au lieu de lire l'horloge.
 - Dates : jour calendaire **local** du téléphone (`toDayKey`), écarts calculés sans être affectés par l'heure d'été.
-- Assets : uniquement des formes SVG originales, aucun contenu protégé.
+- Assets : uniquement des formes SVG originales, aucun contenu protégé. Icône et splash générés depuis
+  `assets/branding/` (emblem.svg, render-icons.cjs).
 - Commits clairs et séparés par étape. `npx tsc --noEmit` et `npm test` doivent passer.
 
 ## Décisions à valider

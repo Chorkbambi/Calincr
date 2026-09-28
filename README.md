@@ -101,12 +101,21 @@ L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer un
 
 1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, **quête du jour** (un exercice + un
    objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), choix de l'exercice
-   (bouton « How to » pour l'explication), comptage des répétitions par la caméra ou à la main.
+   (bouton « How to » pour l'explication, ☆ pour épingler un exercice en tête, « Last time » = ta dernière séance),
+   comptage des répétitions par la caméra ou à la main, combo (coups rapides = plus de dégâts), minuteur de repos.
 2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
-   recommandés), niveaux / XP / état de repos, boss vaincus.
+   recommandés), niveaux / XP / état de repos, **succès** (qui rapportent de l'or), boss vaincus.
 3. **Shop** — acheter et équiper de meilleures épées avec l'or gagné sur les monstres.
 4. **Calendar** — vue mensuelle colorée selon le volume, détail d'un jour, totaux par semaine et par mois.
-5. **Settings** — mode caméra ou manuel, difficulté (Beginner / Normal / Advanced), vie privée, réinitialisation.
+5. **Settings** — mode caméra ou manuel, difficulté (Beginner / Normal / Advanced), minuteur de repos, rappel quotidien,
+   grands boutons, **sauvegarde** (exporter / importer un fichier), vie privée, réinitialisation.
+
+Chaque lundi (à la première ouverture), un **récap de la semaine** passée s'affiche.
+
+## Sauvegarder sa progression
+
+Settings → **Export backup** : crée un fichier `calincr-backup-AAAA-MM-JJ.json` que tu ranges où tu veux (Drive,
+e-mail, fichiers…). Sur un nouveau téléphone : Settings → **Import backup** et choisis ce fichier (il remplace tout).
 
 ## Mode caméra et vie privée
 
@@ -121,7 +130,8 @@ L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer un
   corps doivent être visibles. La caméra s'ouvre en plein écran ; le bouton **Rotate** passe en paysage (pratique
   pour les pompes ou le gainage). Elle s'arrête avec **Stop camera**, en changeant d'exercice ou en quittant l'onglet.
 - Place le téléphone de profil, à environ 2 m (chaque exercice indique où le placer).
-- Au premier lancement, l'app demande de choisir entre caméra et mode manuel.
+- Au premier lancement, un petit tutoriel (3 écrans) puis le choix caméra / mode manuel et du minuteur de repos.
+- **Calibrate** : fais 3 reps lentes et complètes, l'app adapte ses seuils à ton amplitude (pour cet exercice).
 - Sur l'écran caméra, le bouton **Image: on/off** cache ton image (seul un bonhomme est affiché).
 - Politique de confidentialité : dans Settings, et dans [`PRIVACY.md`](PRIVACY.md).
 - Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
