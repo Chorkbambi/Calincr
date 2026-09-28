@@ -17,7 +17,7 @@ import { ZoneBackdrop } from './ZoneBackdrop';
 
 const POPUP_MS = 750;
 
-function DamagePopup({ damage, offset }: { damage: number; offset: number }) {
+function DamagePopup({ damage, offset, weak, color }: { damage: number; offset: number; weak: boolean; color: string }) {
   const progress = useSharedValue(0);
   useEffect(() => {
     progress.value = withTiming(1, { duration: POPUP_MS, easing: Easing.out(Easing.quad) });
@@ -26,15 +26,34 @@ function DamagePopup({ damage, offset }: { damage: number; offset: number }) {
     opacity: progress.value < 0.6 ? 1 : 1 - (progress.value - 0.6) / 0.4,
     transform: [{ translateY: -70 * progress.value }, { translateX: offset }, { scale: 1.3 - 0.3 * progress.value }],
   }));
-  return <Animated.Text style={[styles.damage, style]}>-{damage}</Animated.Text>;
+  return (
+    <Animated.Text style={[styles.damage, { color }, weak && styles.weak, style]}>
+      -{damage}
+      {weak ? '!' : ''}
+    </Animated.Text>
+  );
 }
 
 /** Zone scenery, enemy, sword and damage numbers, animated on every played hit. */
-export function BattleArena({ enemy, frame, weaponTier }: { enemy: EnemyState; frame: HitFrame; weaponTier: number }) {
+export function BattleArena({
+  enemy,
+  frame,
+  weaponTier,
+  glow,
+  numberColor = '#ff5a4a',
+}: {
+  enemy: EnemyState;
+  frame: HitFrame;
+  weaponTier: number;
+  /** Cosmetic aura around the sword. */
+  glow?: string;
+  /** Cosmetic colour of the damage numbers. */
+  numberColor?: string;
+}) {
   const swing = useSharedValue(0);
   const flinch = useSharedValue(0);
   const presence = useSharedValue(1);
-  const [popups, setPopups] = useState<{ id: number; damage: number; offset: number }[]>([]);
+  const [popups, setPopups] = useState<{ id: number; damage: number; offset: number; weak: boolean }[]>([]);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   useEffect(() => {
@@ -46,7 +65,7 @@ export function BattleArena({ enemy, frame, weaponTier }: { enemy: EnemyState; f
       withTiming(0, { duration: 180 }),
     );
     flinch.value = withSequence(withTiming(1, { duration: 70 }), withTiming(0, { duration: 260 }));
-    const popup = { id: frame.seq, damage: hit.damage, offset: ((frame.seq * 37) % 60) - 30 };
+    const popup = { id: frame.seq, damage: hit.damage, offset: ((frame.seq * 37) % 60) - 30, weak: hit.weak };
     setPopups((p) => [...p.slice(-6), popup]);
     const t = setTimeout(() => setPopups((p) => p.filter((x) => x.id !== popup.id)), POPUP_MS);
     timers.current.push(t);
@@ -83,11 +102,11 @@ export function BattleArena({ enemy, frame, weaponTier }: { enemy: EnemyState; f
         <Animated.View pointerEvents="none" style={[styles.hurt, hurtStyle]} />
       </Animated.View>
       <Animated.View style={[styles.sword, swordStyle]}>
-        <SwordFigure size={150} tier={weaponTier} />
+        <SwordFigure size={150} tier={weaponTier} glow={glow} />
       </Animated.View>
       <View pointerEvents="none" style={styles.popups}>
         {popups.map((p) => (
-          <DamagePopup key={p.id} damage={p.damage} offset={p.offset} />
+          <DamagePopup key={p.id} damage={p.damage} offset={p.offset} weak={p.weak} color={numberColor} />
         ))}
       </View>
     </View>
@@ -131,4 +150,5 @@ const styles = StyleSheet.create({
     textShadowRadius: 4,
     textShadowOffset: { width: 0, height: 2 },
   },
+  weak: { fontSize: 40 },
 });

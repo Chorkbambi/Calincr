@@ -1,4 +1,4 @@
-import Svg, { Circle, Defs, G, LinearGradient, Path, Rect, Stop } from 'react-native-svg';
+import Svg, { Circle, Defs, Ellipse, G, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 /** Blade colours for each sword of the shop, weakest first. */
 const BLADES = [
@@ -13,8 +13,8 @@ const BLADES = [
   ['#e6fff6', '#7af0c8', '#1aa07a'], // eternal
 ];
 
-/** A sword drawn with simple shapes. Points up, 1:3 ratio. `tier` = index in the shop. */
-export function SwordFigure({ size = 120, tier = 0 }: { size?: number; tier?: number }) {
+/** A sword drawn with simple shapes. Points up, 1:3 ratio. `tier` = index in the shop, `glow` = optional aura colour. */
+export function SwordFigure({ size = 120, tier = 0, glow }: { size?: number; tier?: number; glow?: string }) {
   const blade = BLADES[Math.min(Math.max(tier, 0), BLADES.length - 1)] ?? BLADES[0]!;
   const id = `blade-${tier}`;
   return (
@@ -29,7 +29,15 @@ export function SwordFigure({ size = 120, tier = 0 }: { size?: number; tier?: nu
           <Stop offset="0" stopColor="#f0cf72" />
           <Stop offset="1" stopColor="#8c6a1f" />
         </LinearGradient>
+        {glow ? (
+          <RadialGradient id={`${id}-glow-${glow.slice(1)}`} cx="50%" cy="45%" rx="50%" ry="50%">
+            <Stop offset="0" stopColor={glow} stopOpacity={0.85} />
+            <Stop offset="0.6" stopColor={glow} stopOpacity={0.35} />
+            <Stop offset="1" stopColor={glow} stopOpacity={0} />
+          </RadialGradient>
+        ) : null}
       </Defs>
+      {glow ? <Ellipse cx={20} cy={52} rx={20} ry={58} fill={`url(#${id}-glow-${glow.slice(1)})`} /> : null}
       <G>
         <Path d="M20 2 L27 14 L27 84 L13 84 L13 14 Z" fill={`url(#${id})`} stroke="#5d6168" strokeWidth={1} />
         <Path d="M20 8 L20 82" stroke={blade[2]} strokeWidth={1} />

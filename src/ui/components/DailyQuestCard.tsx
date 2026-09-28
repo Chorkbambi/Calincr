@@ -45,6 +45,11 @@ export function DailyQuestCard({
   return (
     <Panel title="Daily quest">
       {streak > 0 ? <Text style={styles.streak}>🔥 {streak}-day streak</Text> : null}
+      {quest.freezesUsed > 0 ? (
+        <Text style={styles.freeze}>
+          🧊 Streak saved: {quest.freezesUsed} streak freeze{quest.freezesUsed > 1 ? 's' : ''} used
+        </Text>
+      ) : null}
       <Pressable
         onPress={() => onSelect(quest.exerciseId)}
         accessibilityRole="button"
@@ -112,6 +117,7 @@ const styles = StyleSheet.create({
   malus: { color: colors.tired },
   reward: { color: colors.gold, fontSize: 13, fontWeight: '600' },
   streak: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 14 },
+  freeze: { color: '#9fe6ff', fontSize: 13 },
   done: { color: colors.rested, fontFamily: fonts.titleBold, fontSize: 14 },
   muted: { color: colors.textMuted, fontSize: 13, fontFamily: undefined },
 });

@@ -5,8 +5,13 @@ import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  COSMETICS,
   ENEMIES,
   enemyName,
+  enemyWeakness,
+  exerciseStyle,
+  STYLE_NAMES,
+  WEAKNESS,
   exercisesForDifficulty,
   getExercise,
   hitDamage,
@@ -30,6 +35,7 @@ import { HpBar } from '../ui/components/HpBar';
 import { Panel } from '../ui/components/Panel';
 import { ComboBadge } from '../ui/components/ComboBadge';
 import { RestTimer } from '../ui/components/RestTimer';
+import { WeeklyBossBar } from '../ui/components/WeeklyBossBar';
 import { formatAmount, formatCompact, formatDayShort, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
@@ -51,9 +57,15 @@ function describe(outcome: WorkResult): string | null {
       `Daily quest complete! +${formatNumber(outcome.questCompleted.rewardXp)} XP · +${formatNumber(outcome.questCompleted.rewardGold)} gold`,
     );
   }
+  if (outcome.record) {
+    parts.push(
+      `🏅 New record: ${formatAmount(outcome.record.exerciseId, outcome.record.amount)} in one set (was ${formatNumber(outcome.record.previous)}) · +${formatNumber(outcome.record.gold)} gold`,
+    );
+  }
+  if (outcome.weeklyBossGold !== null) parts.push(`👑 Weekly Titan defeated! +${formatNumber(outcome.weeklyBossGold)} gold`);
   for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
   for (const a of outcome.achievements) parts.push(`🏆 Achievement: ${a.name} · +${formatNumber(a.gold)} gold`);
-  return parts.length > 0 ? parts.slice(-3).join('\n') : null;
+  return parts.length > 0 ? parts.slice(-4).join('\n') : null;
 }
 
 export default function CombatScreen() {
@@ -95,6 +107,17 @@ export default function CombatScreen() {
       <RestTimer startedAt={restStartedAt} seconds={settings.restTimerSeconds} onDone={() => setRestStartedAt(null)} />
     ) : null;
   const hudEnemy = frame.enemy ?? state.enemy;
+  const style = exerciseStyle(exercise);
+  const weakness = (level: number, stage: number) => {
+    const weak = enemyWeakness(level, stage);
+    const hits = weak === style;
+    return (
+      <Text style={[styles.weakness, hits && styles.weaknessHit]}>
+        Weak to {STYLE_NAMES[weak]}
+        {hits ? ` · your exercise hits it: +${Math.round(WEAKNESS.damageBonus * 100)}% damage!` : ''}
+      </Text>
+    );
+  };
   const hud = (
     <View style={styles.hud}>
       <View style={styles.topRow}>
@@ -108,6 +131,7 @@ export default function CombatScreen() {
       <Text style={styles.hp}>
         {formatNumber(hudEnemy.hp)} / {formatNumber(hudEnemy.maxHp)} HP · {formatNumber(hitDamage(state))} per hit
       </Text>
+      {weakness(hudEnemy.level, hudEnemy.stage)}
       <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {restTimer}
@@ -217,9 +241,16 @@ export default function CombatScreen() {
             <Text style={styles.hp}>
               {formatNumber(enemy.hp)} / {formatNumber(enemy.maxHp)} HP
             </Text>
+            {weakness(enemy.level, enemy.stage)}
           </View>
 
-          <BattleArena enemy={enemy} frame={frame} weaponTier={Math.max(0, weaponTier)} />
+          <BattleArena
+            enemy={enemy}
+            frame={frame}
+            weaponTier={Math.max(0, weaponTier)}
+            glow={COSMETICS.find((c) => c.id === state.equippedCosmetics.glow)?.color}
+            numberColor={COSMETICS.find((c) => c.id === state.equippedCosmetics.numbers)?.color}
+          />
 
           <View style={styles.damageRow}>
             <Text style={styles.damageLabel}>Damage per hit</Text>
@@ -244,6 +275,7 @@ export default function CombatScreen() {
                 >
                   <Text style={[styles.chipText, selected && styles.chipTextSelected, settings.largeButtons && styles.chipTextLarge]}>
                     {pinned ? '★ ' : ''}
+                    {exerciseStyle(e) === enemyWeakness(enemy.level, enemy.stage) ? '⚡ ' : ''}
                     {e.name}
                   </Text>
                 </Pressable>
@@ -260,7 +292,10 @@ export default function CombatScreen() {
               <Text style={styles.howTo}>ⓘ How to</Text>
             </Pressable>
           </View>
-          <Text style={styles.muted}>{lastDoneText}</Text>
+          <Text style={styles.muted}>
+            {lastDoneText}
+            {state.records[exerciseId] ? ` · Record: ${formatAmount(exerciseId, state.records[exerciseId]!)} in one set` : ''}
+          </Text>
 
           {restTimer}
           {controls}
@@ -287,6 +322,8 @@ export default function CombatScreen() {
               </Text>
             )}
           </Panel>
+
+          <WeeklyBossBar state={state} today={today} />
         </ScrollView>
       </KeyboardAvoidingView>
       <ExerciseGuideModal exerciseId={guideFor} onClose={() => setGuideFor(null)} />
@@ -306,6 +343,8 @@ const styles = StyleSheet.create({
   enemyHeader: { gap: spacing.xs },
   stage: { color: colors.textMuted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2 },
   enemyName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 24 },
+  weakness: { color: colors.textMuted, fontSize: 13, textAlign: 'center' },
+  weaknessHit: { color: colors.rested, fontWeight: '700' },
   bossName: { color: colors.goldLight },
   hp: { color: colors.textMuted, fontSize: 13, textAlign: 'right', fontVariant: ['tabular-nums'] },
   damageRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: spacing.sm },
