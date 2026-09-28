@@ -99,7 +99,7 @@ fix it before building an APK.
 - All balancing numbers (XP, curves, rest multipliers, enemy HP, exercises) live in
   [`src/game/config.ts`](src/game/config.ts).
 - To add a dependency: `npx expo install <package>` (and check that it is included in Expo Go).
-- Architecture, game rules and conventions: see [`CLAUDE.md`](CLAUDE.md) (in French).
+- Architecture, game rules and conventions: see [`CLAUDE.md`](CLAUDE.md).
 
 ## Install the Android app on your phone (free, without the Play Store)
 

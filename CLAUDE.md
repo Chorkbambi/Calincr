@@ -1,209 +1,211 @@
 # CLAUDE.md — Calincr
 
-Application mobile de fitness gamifiée (Ring Fit × jeu incrémental) pour iPhone et Android.
-Chaque répétition réelle d'un exercice au poids du corps = un coup d'épée contre le monstre en cours.
-Les répétitions sont comptées par la caméra (détection de posture sur le téléphone) ou à la main.
+Gamified mobile fitness app (Ring Fit × incremental game) for iPhone and Android.
+Every real rep of a bodyweight exercise = one sword strike against the current monster.
+Reps are counted by the camera (pose detection on the phone) or by hand.
 
-## Règle n°1 — compatible Expo Go uniquement
+## Rule #1 — Expo Go compatible only
 
-- L'app doit tourner **entièrement dans Expo Go** (App Store / Play Store). Pas de development build.
-- N'installer **aucune bibliothèque native absente d'Expo Go**. Toujours `npx expo install <paquet>`, jamais `npm install <paquet>` pour une dépendance runtime.
-- Pas de dossiers `ios/` ni `android/`.
-- Pas de backend, pas de compte : persistance locale uniquement (expo-sqlite).
-- La détection de posture tourne dans une WebView (MediaPipe Tasks JS/WASM) justement pour rester compatible Expo Go.
+- The app must run **entirely in Expo Go** (App Store / Play Store). No development build.
+- Install **no native library missing from Expo Go**. Always `npx expo install <package>`, never `npm install <package>` for a runtime dependency.
+- No `ios/` or `android/` folders.
+- No backend, no account: local persistence only (expo-sqlite).
+- Pose detection runs in a WebView (MediaPipe Tasks JS/WASM) precisely to stay Expo Go compatible.
 
-## Règle n°2 — vie privée et sécurité
+## Rule #2 — privacy and security
 
-- **Rien de ce que filme la caméra n'est enregistré ni envoyé.** La vidéo reste dans l'élément `<video>` de la WebView ;
-  seuls 33 points du corps (nombres) sont transmis à l'app, traités puis jetés. Seuls les compteurs de reps sont sauvegardés.
-- Tout reste sur le téléphone et **l'app n'utilise jamais internet**. MediaPipe (code JS, moteur WebAssembly SIMD et
-  modèle, tasks-vision 1.0.1, ~18 Mo) est **embarqué** dans `assets/mediapipe/` et transmis à la page caméra par l'app
-  (`src/input/camera/mediapipeAssets.ts`, base64 en morceaux via injectJavaScript → URLs `blob:` locales).
-- La page caméra a une Content-Security-Policy stricte (voir `src/input/camera/poseCameraPage.ts`) : aucune destination
-  réseau autorisée (seulement `blob:`/`data:`) ; l'app bloque toute navigation de la WebView.
-- Mettre à jour MediaPipe = remplacer les fichiers de `assets/mediapipe/` (voir NOTICE.txt) et retester la page caméra.
-- Tout message de la WebView est validé strictement (`src/pose/messages.ts`) ; toute sauvegarde relue est validée
-  (`restoreState`, `restoreSettings`). Requêtes SQL toujours paramétrées.
-- La caméra est coupée dès qu'on quitte l'onglet Fight (la WebView est démontée).
-- Premier lancement : écran de bienvenue (`WelcomeModal`, tutoriel puis choix caméra ou manuel), réglage `onboardingVersion`.
-- Bouton « Image on/off » sur la caméra plein écran : n'affiche que le squelette sur fond noir (réglage `hideCameraImage`,
-  `window.__setHideVideo` dans la page). Badge permanent « 🔒 Not recorded ».
-- Politique de confidentialité : `src/ui/content/privacyPolicy.ts` (affichée dans Settings et l'écran de bienvenue),
-  copie dans `PRIVACY.md` — garder les deux identiques. Le dépôt est **public** : ne jamais y mettre de secret
-  (clés, jetons, keystore) ; l'URL GitHub de `PRIVACY.md` sert de page publique pour les stores.
-- Ne jamais ajouter d'analytics, de pub, de SDK tiers qui envoie des données, ni de logs contenant des données de posture.
-- Rappel quotidien : notification **locale** planifiée par le téléphone (expo-notifications, jamais de push ni de jeton).
-- Sauvegarde : fichier JSON exporté via la feuille de partage du téléphone ; l'import est validé strictement
-  (`src/game/backup.ts`, taille max, version) et remplace tout dans une transaction.
-- La calibration caméra ne garde que deux seuils d'angle par exercice (kv `calibrations`), jamais de points du corps.
-- Cartes à partager (`ShareCardModal`, react-native-view-shot + expo-sharing) : uniquement des chiffres du jeu,
-  jamais d'image de la caméra ; rien n'est envoyé sans que le joueur choisisse une app.
+- **Nothing the camera films is recorded or sent.** The video stays in the WebView's `<video>` element;
+  only 33 body points (numbers) are passed to the app, processed, then discarded. Only rep counts are saved.
+- Everything stays on the phone and **the app never uses the internet**. MediaPipe (JS code, WebAssembly SIMD engine and
+  model, tasks-vision 1.0.1, ~18 MB) is **bundled** in `assets/mediapipe/` and handed to the camera page by the app
+  (`src/input/camera/mediapipeAssets.ts`, base64 chunks via injectJavaScript → local `blob:` URLs).
+- The camera page has a strict Content-Security-Policy (see `src/input/camera/poseCameraPage.ts`): no network
+  destination allowed (only `blob:`/`data:`); the app blocks any WebView navigation.
+- Updating MediaPipe = replace the files in `assets/mediapipe/` (see NOTICE.txt) and retest the camera page.
+- Every WebView message is strictly validated (`src/pose/messages.ts`); every save read back is validated
+  (`restoreState`, `restoreSettings`). SQL queries are always parameterized.
+- The camera is switched off as soon as the Fight tab is left (the WebView is unmounted).
+- First launch: welcome screen (`WelcomeModal`, tutorial then camera or manual choice), `onboardingVersion` setting.
+- "Image on/off" button on the full-screen camera: shows only the skeleton on black (`hideCameraImage` setting,
+  `window.__setHideVideo` in the page). Permanent "🔒 Not recorded" badge.
+- Privacy policy: `src/ui/content/privacyPolicy.ts` (shown in Settings and on the welcome screen),
+  copied in `PRIVACY.md` — keep both identical. The repository is **public**: never put secrets in it
+  (keys, tokens, keystore); the GitHub URL of `PRIVACY.md` serves as the public page for the stores.
+- Never add analytics, ads, third-party SDKs that send data, or logs containing pose data.
+- Daily reminder: **local** notification scheduled by the phone (expo-notifications, never push or tokens).
+- Backup: JSON file exported through the phone's share sheet; import is strictly validated
+  (`src/game/backup.ts`, max size, version) and replaces everything in one transaction.
+- Camera calibration keeps only two angle thresholds per exercise (kv `calibrations`), never body points.
+- Share cards (`ShareCardModal`, react-native-view-shot + expo-sharing): game numbers only,
+  never a camera image; nothing is sent unless the player picks an app.
 
-## Nom et publication
+## Name and publishing
 
-- Nom affiché : **Calincr**. Identifiant : `com.chorkbambi.calincr` (Android `package` et iOS `bundleIdentifier`
-  dans `app.json`) — ne plus le changer après une première publication.
-- `eas.json` : profil `preview` = APK Android installable directement (tests gratuits), `production` = app bundle
-  pour Google Play. Numéro de version (`versionCode`) géré par EAS (`appVersionSource: remote`, `autoIncrement`) :
-  ne pas le remettre dans `app.json`. Mises à jour = nouveau build installé par-dessus (pas d'EAS Update : l'app ne doit pas utiliser internet). Permissions Android limitées à la caméra (micro bloqué).
-- La base de données s'appelle toujours `cali-incr.db` (la renommer effacerait les sauvegardes).
+- Display name: **Calincr**. Identifier: `com.chorkbambi.calincr` (Android `package` and iOS `bundleIdentifier`
+  in `app.json`) — never change it after a first release.
+- `eas.json`: `preview` profile = directly installable Android APK (free testing), `production` = app bundle
+  for Google Play. Version number (`versionCode`) managed by EAS (`appVersionSource: remote`, `autoIncrement`):
+  don't put it back in `app.json`. Updates = new build installed on top (no EAS Update: the app must not use the
+  internet). Android permissions limited to the camera (microphone blocked).
+- The database is always called `cali-incr.db` (renaming it would erase saves).
 
 ## Stack
 
-- Expo SDK 57 (React Native 0.86, React 19.2), TypeScript `strict`, Expo Router (routes dans `src/app/`).
+- Expo SDK 57 (React Native 0.86, React 19.2), TypeScript `strict`, Expo Router (routes in `src/app/`).
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
-  expo-haptics, expo-camera (permission uniquement), react-native-webview, expo-screen-orientation,
-  expo-asset + expo-file-system (lecture des fichiers MediaPipe embarqués), expo-sharing + expo-document-picker
-  (sauvegarde), expo-notifications (rappel local), react-native-view-shot (cartes à partager). `metro.config.js` ajoute les extensions wasm/task/bin.
-- Tests : Jest 29 via `jest-expo` (fichiers `__tests__/*.test.ts`). GitHub Actions (`.github/workflows/ci.yml`)
-  lance `npm ci`, `tsc --noEmit` et `npm test` à chaque push sur main.
+  expo-haptics, expo-camera (permission only), react-native-webview, expo-screen-orientation,
+  expo-asset + expo-file-system (reading the bundled MediaPipe files), expo-sharing + expo-document-picker
+  (backup), expo-notifications (local reminder), react-native-view-shot (share cards). `metro.config.js` adds the
+  wasm/task/bin extensions.
+- Tests: Jest 29 via `jest-expo` (`__tests__/*.test.ts` files). GitHub Actions (`.github/workflows/ci.yml`)
+  runs `npm ci`, `tsc --noEmit` and `npm test` on every push to main.
 
-## Commandes
+## Commands
 
 ```bash
 npm start              # npx expo start
 npx expo start --tunnel
 npm test               # jest
-npx tsc --noEmit       # typecheck (doit passer avant tout commit)
+npx tsc --noEmit       # typecheck (must pass before any commit)
 ```
 
 ## Architecture
 
 ```
 src/
-  game/        Logique de jeu en TypeScript PUR (aucun import React / Expo). Testée avec Jest.
-    config.ts        ← TOUS les chiffres d'équilibrage (XP, courbes, multiplicateurs, PV, or, épées, exercices)
-    guides.ts        explications des exercices (étapes, conseil, placement de la caméra)
-    dates.ts         jours calendaires locaux (clé YYYY-MM-DD), écarts en jours, semaines ISO
-    progression.ts   courbe d'XP, montée de niveau
-    exercises.ts     catalogue, niveaux de difficulté, exercices par muscle, répartition de l'XP
-    recovery.ts      multiplicateurs de repos / fatigue par muscle
-    zones.ts         zones (nom, décor, monstres, boss), changent tous les 10 niveaux
-    enemy.ts         PV des monstres/boss, enchaînement des niveaux, or gagné
-    engine.ts        GameState, dégâts, applyWork() (reps/secondes → coups + XP + or)
-    shop.ts          achat / équipement des épées, armures, anneaux, cosmétiques, Streak Freeze
-    styles.ts        style d'un exercice (push/pull/legs/core), faiblesse des ennemis, effets de l'équipement
-    records.ts       records personnels (meilleure série par exercice)
-    settings.ts      réglages (mode caméra/manuel, difficulté, reps par appui) + validation
-    sets.ts          agrégation des séries enregistrées
-    stats.ts         calendrier : volume, intensité, totaux semaine/mois, progression hebdo d'un exercice
-    recommend.ts     exercices classés selon le bonus de repos
-    quest.ts         quête du jour : exercice, objectif selon l'historique, récompense, streak
-    achievements.ts  succès (progression, récompense en or selon le palier)
-    recap.ts         récapitulatif de la semaine passée
-    backup.ts        création / validation stricte d'un fichier de sauvegarde
-    serialization.ts restauration robuste d'un état sauvegardé
-  pose/        Comptage des reps à partir des points du corps (TypeScript pur, testé)
-    landmarks.ts, metrics.ts   angles des articulations
-    trackers.ts                seuils de détection par exercice (pas de l'équilibrage)
-    repCounter.ts              machine à états : reps (hystérésis) ou secondes tenues (gainage)
-    messages.ts                validation stricte des messages de la WebView
-    calibration.ts             seuils personnalisés à partir de quelques reps lentes (« Calibrate »)
-  input/       Saisie des répétitions
-    RepSource.ts         interface RepSource (événements 'reps' et 'seconds')
-    CameraRepSource.ts   mode caméra (par défaut) ; camera/ = page WebView + composant
-    ManualRepSource.ts   mode manuel : bouton Rep (× reps par appui), chronomètre, faux "Undo"
-                         (le mode caméra a aussi des boutons de correction : CameraRepSource.addManually)
-    useRepInput.tsx      choisit l'implémentation selon les réglages
-  notifications/ rappel quotidien local (chargé paresseusement, erreurs ignorées)
-  storage/     expo-sqlite : migrations (database.ts) et GameRepository (seul endroit qui connaît le schéma)
-  state/       GameProvider (contexte React) : applique la logique, sauvegarde, expose l'état aux écrans
-  ui/          thème, formatage, composants (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap, WelcomeModal,
+  game/        PURE TypeScript game logic (no React / Expo import). Tested with Jest.
+    config.ts        ← ALL balancing numbers (XP, curves, multipliers, HP, gold, swords, exercises)
+    guides.ts        exercise instructions (steps, tip, camera placement)
+    dates.ts         local calendar days (YYYY-MM-DD key), day gaps, ISO weeks
+    progression.ts   XP curve, level-ups
+    exercises.ts     catalog, difficulty tiers, exercises per muscle, XP split
+    recovery.ts      rest / fatigue multipliers per muscle
+    zones.ts         zones (name, scenery, monsters, bosses), change every 10 levels
+    enemy.ts         monster/boss HP, level progression, gold earned
+    engine.ts        GameState, damage, applyWork() (reps/seconds → hits + XP + gold), weekly boss
+    shop.ts          buying / equipping swords, armor, rings, cosmetics, Streak Freeze
+    styles.ts        exercise style (push/pull/legs/core), enemy weaknesses, gear effects
+    records.ts       personal records (best set per exercise)
+    settings.ts      settings (camera/manual mode, difficulty, reps per press…) + validation
+    sets.ts          aggregation of recorded sets
+    stats.ts         calendar: volume, intensity, weekly/monthly totals, weekly progress of an exercise
+    recommend.ts     exercises ranked by rest bonus
+    quest.ts         daily quest: exercise, history-based target, reward, streak, streak freezes
+    achievements.ts  achievements (progress, gold reward per tier)
+    recap.ts         last week's recap
+    backup.ts        creation / strict validation of a backup file
+    serialization.ts robust restoration of a saved state
+  pose/        Rep counting from body points (pure TypeScript, tested)
+    landmarks.ts, metrics.ts   joint angles
+    trackers.ts                detection thresholds per exercise (not balancing)
+    repCounter.ts              state machine: reps (hysteresis) or seconds held (holds)
+    messages.ts                strict validation of WebView messages
+    calibration.ts             personal thresholds from a few slow reps ("Calibrate")
+  input/       Rep input
+    RepSource.ts         RepSource interface ('reps' and 'seconds' events)
+    CameraRepSource.ts   camera mode (default); camera/ = WebView page + component
+    ManualRepSource.ts   manual mode: Rep button (× reps per press), timer, fake "Undo"
+                         (camera mode also has correction buttons: CameraRepSource.addManually)
+    useRepInput.tsx      picks the implementation from the settings
+  notifications/ local daily reminder (loaded lazily, errors ignored)
+  storage/     expo-sqlite: migrations (database.ts) and GameRepository (the only place that knows the schema)
+  state/       GameProvider (React context): applies the logic, saves, exposes the state to the screens
+  ui/          theme, formatting, components (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap, WelcomeModal,
                WeeklyRecapModal, RestTimer, ComboBadge, AchievementsPanel, BackupPanel, WeeklyBossBar,
                ProgressChart, ExerciseProgressPanel, ShareCardModal…)
-  app/         écrans Expo Router : index (Fight), character (Hero), shop, calendar, settings
+  app/         Expo Router screens: index (Fight), character (Hero), shop, calendar, settings
 ```
 
-Flux d'une répétition : `RepSource` émet un événement → l'écran Fight appelle `work()` du `GameProvider`
-→ `applyWork()` (pur) renvoie le nouvel état + les coups → sauvegarde SQLite en file d'attente
-→ `useHitQueue` rejoue les coups en animation (accélérée pour plusieurs reps d'un coup).
+Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GameProvider`'s `work()`
+→ `applyWork()` (pure) returns the new state + the hits → queued SQLite save
+→ `useHitQueue` replays the hits as animations (sped up for several reps at once).
 
-**L'écran Fight ne dépend que de l'interface `RepSource`**, jamais d'une implémentation.
+**The Fight screen depends only on the `RepSource` interface**, never on an implementation.
 
-## Règles du jeu (valeurs dans `src/game/config.ts`)
+## Game rules (values in `src/game/config.ts`)
 
-- 10 muscles, tous niveau 1 au départ. Épée de départ : Rusty Sword ×1.
-- **Dégâts d'un coup** = somme des niveaux de tous les muscles × multiplicateur de l'épée.
-- Chaque exercice donne un XP de base par rép. (par seconde pour les gainages), réparti entre les muscles selon des poids qui totalisent 1.0.
-- **Difficulté** (réglage) : Beginner = exercices simplifiés ; Normal = exercices classiques ; Advanced = Normal + exercices durs.
-  Chaque mode couvre les 10 muscles.
-- **Courbe d'XP** : `xpForNextLevel(niveau) = round(50 × niveau^1.6)`. L'XP en trop passe au niveau suivant.
-- **Repos (par muscle)**, calculé à la première séance du jour puis figé toute la journée :
-  - 1re séance de ce muscle : ×1.0
-  - entraîné hier : 2e jour d'affilée ×0.7, 3e ×0.5, 4e et plus ×0.35
-  - dernier entraînement il y a 2 jours ×1.0, 3 jours ×1.25, 4 jours ou plus ×1.5 (plafond)
-  - statut affiché : < 1 « Tired », = 1 « Ready », > 1 « Rested ».
-- **Monstres et niveaux** : chaque niveau = 10 monstres puis 1 boss, puis niveau suivant, à l'infini.
-  PV monstre = `round(20 × 1.6^(niveau-1) × (1 + étape × 0.08))`, boss = ×4. Dégâts en trop non reportés.
-- **Zones** : nom, décor et monstres changent tous les 10 niveaux (8 zones, puis elles bouclent avec II, III…).
-- **Or** : chaque ennemi vaincu rapporte `max(1, round(PV max × 0.25))`, ×2 pour un boss. Sert à acheter des épées (Shop).
-- Chaque rép. = 1 coup puis gain d'XP (un niveau gagné en cours de série augmente les coups suivants).
-- Gainages : 1 coup toutes les `COMBAT.secondsPerHit` secondes (5 par défaut), le reste est reporté.
-- **Quête du jour** (écran Fight, `src/game/quest.ts`) : UN seul exercice proposé par jour (l'app motive, elle ne coache pas) :
-  celui dont les muscles sont les plus reposés (multiplicateur effectif = Σ poids × multiplicateur de repos).
-  Objectif = total de la dernière séance de cet exercice + 10 % (au moins +1 rép. / +5 s), valeur de départ par niveau
-  si jamais fait, × 0,8 après 10 jours sans, × 0,7 si les muscles sont fatigués ; découpé en séries (ex. 3 × 8).
-  Récompense à la complétion : XP bonus (objectif × XP de base × 0,5, sans multiplicateur) + or (1,5 × PV du 1er monstre
-  du niveau). Série de jours consécutifs (streak). Générée une fois par jour, sauvegardée (kv `daily_quest`).
-- **Mode manuel** : le bouton Rep ajoute « reps par appui » (1 à 50). Le bouton Undo n'annule rien : il affiche
-  « Made a mistake? Too bad — you'll have to make up for it! » (volontaire).
-- **Mode caméra** : correction manuelle possible (+1 / +5 reps, +5 / +15 s pour les gainages) si la caméra rate des reps ;
-  même faux Undo. Le mode caméra fonctionne hors ligne (MediaPipe embarqué).
-- **Caméra** : ne démarre qu'après « Start camera » pour l'exercice choisi (écran de préparation qui dit quelles parties
-  du corps doivent être visibles, `src/pose/visibility.ts`). Elle s'ouvre en plein écran, image entière (non recadrée),
-  avec un bouton Rotate (paysage) ; elle s'arrête si on change d'exercice, quitte l'onglet ou appuie sur Stop.
-  L'app est verrouillée en portrait (expo-screen-orientation) sauf la caméra plein écran.
-- **Combo** : des coups espacés de moins de 10 s s'enchaînent ; +5 % de dégâts tous les 5 coups, plafond +50 % (`COMBO`).
-- **Faiblesses** : style d'un exercice = groupe (push/pull/legs/core) qui reçoit le plus de poids d'XP ; chaque ennemi
-  craint un style (`enemyWeakness`) → +50 % de dégâts (`WEAKNESS`). Chaque difficulté couvre les 4 styles (testé).
-- **Titan de la semaine** (`WEEKLY_BOSS`) : créé au 1er coup de la semaine, PV = dégâts par coup × 300 (min. 300),
-  chaque coup le touche ; récompense = PV du 1er monstre du niveau × 10 (min. 100).
-- **Records** : meilleure série par exercice ; la battre (pas la 1re fois) paie l'or une fois par série (`RECORDS`).
-  Records initialisés depuis l'historique au chargement (`seedRecords`).
-- **Streak Freeze** (`STREAK_FREEZE`) : 2 max, prix = PV du 1er monstre × 3 ; consommés automatiquement (un par jour
-  manqué) si la série de quêtes est > 0 (`createDailyQuest` → `freezesUsed`, `spendStreakFreezes`).
-- **Équipement** (`GEAR`) : une armure (+or) et un anneau (fenêtre de combo, plafond de combo, bonus de faiblesse).
-  **Cosmétiques** (`COSMETICS`) : halo de l'épée et couleur des dégâts, purement visuels.
-- **Succès** (`achievements.ts`) : 20 succès, récompense en or = PV du 1er monstre du niveau × 2 / 5 / 12 selon le palier
-  (min. 20). Stats à vie dans `GameState.lifetime`.
-- **Minuteur de repos** : après « Finish set », compte à rebours (off / 30 / 60 / 90 / 120 s), demandé au premier lancement.
-- **Favoris** : exercices épinglés en tête de liste ; « Last time » affiche la dernière séance de chaque exercice.
-- **Récap de la semaine** : affiché une fois à la première ouverture d'une nouvelle semaine (s'il y a eu de l'entraînement).
-- **Premier lancement** : 3 écrans de tutoriel puis choix caméra/manuel et minuteur. `ONBOARDING_VERSION` (settings.ts) :
-  l'augmenter pour remontrer le tutoriel à tous.
-- **Accessibilité** : réglage « Large buttons » ; le texte suit la taille de police du téléphone.
-- **How to** : chaque exercice a une animation (bonhomme en SVG, `src/ui/exerciseAnimations.ts` : 2 poses interpolées).
+- 10 muscles, all level 1 at the start. Starting sword: Rusty Sword ×1.
+- **Damage of a hit** = sum of all muscle levels × sword multiplier.
+- Each exercise gives base XP per rep (per second for holds), split between muscles by weights that total 1.0.
+- **Difficulty** (setting): Beginner = simplified exercises; Normal = classic exercises; Advanced = Normal + hard ones.
+  Each mode covers all 10 muscles.
+- **XP curve**: `xpForNextLevel(level) = round(50 × level^1.6)`. Extra XP carries over to the next level.
+- **Rest (per muscle)**, computed at the first session of the day then frozen for the day:
+  - first session ever for this muscle: ×1.0
+  - trained yesterday: 2nd day in a row ×0.7, 3rd ×0.5, 4th and more ×0.35
+  - last trained 2 days ago ×1.0, 3 days ×1.25, 4 days or more ×1.5 (cap)
+  - displayed status: < 1 "Tired", = 1 "Ready", > 1 "Rested".
+- **Monsters and levels**: each level = 10 monsters then 1 boss, then the next level, forever.
+  Monster HP = `round(20 × 1.6^(level-1) × (1 + stage × 0.08))`, boss = ×4. Overkill damage is not carried over.
+- **Zones**: name, scenery and monsters change every 10 levels (8 zones, then they loop as II, III…).
+- **Gold**: each defeated enemy gives `max(1, round(max HP × 0.25))`, ×2 for a boss. Spent in the Shop.
+- Each rep = 1 hit then XP gain (a level gained mid-set boosts the following hits).
+- Holds: 1 hit every `COMBAT.secondsPerHit` seconds (5 by default), the remainder carries over.
+- **Daily quest** (Fight screen, `src/game/quest.ts`): ONE exercise suggested per day (the app motivates, it doesn't
+  coach): the one whose muscles are most rested (effective multiplier = Σ weight × rest multiplier).
+  Target = total of the last session of that exercise + 10% (at least +1 rep / +5 s), a starting value per tier
+  if never done, × 0.8 after 10 days without, × 0.7 if the muscles are tired; split into sets (e.g. 3 × 8).
+  Reward on completion: bonus XP (target × base XP × 0.5, no multiplier) + gold (1.5 × HP of the level's first
+  monster). Day streak. Generated once a day, saved (kv `daily_quest`).
+- **Manual mode**: the Rep button adds "reps per press" (1 to 50). The Undo button undoes nothing: it shows
+  "Made a mistake? Too bad — you'll have to make up for it!" (on purpose).
+- **Camera mode**: manual correction possible (+1 / +5 reps, +5 / +15 s for holds) if the camera misses reps;
+  same fake Undo. Camera mode works offline (bundled MediaPipe).
+- **Camera**: starts only after "Start camera" for the chosen exercise (preparation screen saying which body parts
+  must be visible, `src/pose/visibility.ts`). It opens full screen, whole image (not cropped), with a Rotate
+  button (landscape); it stops when the exercise changes, the tab is left or Stop is pressed.
+  The app is locked in portrait (expo-screen-orientation) except the full-screen camera.
+- **Combo**: hits less than 10 s apart chain; +5% damage every 5 hits, capped at +50% (`COMBO`).
+- **Weaknesses**: an exercise's style = the group (push/pull/legs/core) receiving the most XP weight; each enemy
+  fears one style (`enemyWeakness`) → +50% damage (`WEAKNESS`). Every difficulty covers the 4 styles (tested).
+- **Weekly Titan** (`WEEKLY_BOSS`): created at the first hit of the week, HP = damage per hit × 300 (min. 300),
+  every hit damages it; reward = HP of the level's first monster × 10 (min. 100).
+- **Records**: best set per exercise; beating it (not the first time) pays gold once per set (`RECORDS`).
+  Records are seeded from the history on load (`seedRecords`).
+- **Streak Freeze** (`STREAK_FREEZE`): 2 max, price = HP of the first monster × 3; used automatically (one per
+  missed day) if the quest streak is > 0 (`createDailyQuest` → `freezesUsed`, `spendStreakFreezes`).
+- **Gear** (`GEAR`): one armor (+gold) and one ring (combo window, combo cap, weakness bonus).
+  **Cosmetics** (`COSMETICS`): sword glow and damage number colour, purely visual.
+- **Achievements** (`achievements.ts`): 20 achievements, gold reward = HP of the level's first monster × 2 / 5 / 12
+  by tier (min. 20). Lifetime stats in `GameState.lifetime`.
+- **Rest timer**: after "Finish set", countdown (off / 30 / 60 / 90 / 120 s), asked at first launch.
+- **Favourites**: pinned exercises first in the list; "Last time" shows the last session of each exercise.
+- **Weekly recap**: shown once at the first launch of a new week (if there was any training).
+- **First launch**: 3 tutorial screens then camera/manual choice and rest timer. `ONBOARDING_VERSION` (settings.ts):
+  bump it to show the tutorial to everyone again.
+- **Accessibility**: "Large buttons" setting; text follows the phone's font size.
+- **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 
 ## Conventions
 
-- **Tout le jeu est en anglais** (interface). Code, identifiants et commentaires en anglais. README en anglais ; CLAUDE.md en français.
-- Aucun chiffre d'équilibrage en dur ailleurs que dans `config.ts`.
-- `src/game/` et `src/pose/` ne doivent jamais importer React, React Native ou Expo. Toute nouvelle règle y est testée.
-- Les fonctions de `src/game/` sont pures : elles reçoivent `now: Date` au lieu de lire l'horloge.
-- Dates : jour calendaire **local** du téléphone (`toDayKey`), écarts calculés sans être affectés par l'heure d'été.
-- Assets : uniquement des formes SVG originales, aucun contenu protégé. Icône et splash générés depuis
+- **Everything is in English**: the interface, code, identifiers, comments and docs (README, CLAUDE.md, PRIVACY.md).
+- No balancing number hard-coded anywhere but `config.ts`.
+- `src/game/` and `src/pose/` must never import React, React Native or Expo. Every new rule is tested there.
+- `src/game/` functions are pure: they receive `now: Date` instead of reading the clock.
+- Dates: the phone's **local** calendar day (`toDayKey`), gaps computed without being affected by daylight saving time.
+- Assets: original SVG shapes only, no protected content. Icon and splash generated from
   `assets/branding/` (emblem.svg, render-icons.cjs).
-- Commits clairs et séparés par étape. `npx tsc --noEmit` et `npm test` doivent passer.
+- Clear commits, one per step. `npx tsc --noEmit` and `npm test` must pass.
 
-## Décisions à valider
+## Decisions to validate
 
-Choix faits là où la demande était ambiguë (les plus simples) :
+Choices made where the request was ambiguous (the simplest ones):
 
-1. **SDK** : Expo SDK 57. Depuis le SDK 57, Expo Go sur iPhone exige d'être **connecté au même compte Expo** (gratuit) dans la CLI (`npx expo login`) et dans l'app Expo Go.
-2. **XP de base par exercice** : valeurs inventées (4 à 18 XP/rép. selon la difficulté, 1,5 à 3 XP/s pour les gainages). À tester.
-3. **Gainage** : 1 coup d'épée toutes les 5 s tenues. Les secondes restantes sont reportées au prochain gainage.
-4. **Fentes, exercices sur une jambe** : une répétition = un côté.
-5. **Série** : reste ouverte tant qu'on garde le même exercice le même jour ; se ferme avec « Finish set », un changement d'exercice ou le redémarrage de l'app.
-6. **Dégâts excédentaires** : non reportés sur l'ennemi suivant.
-7. **Série qui passe minuit** : démarre une nouvelle série (le multiplicateur est recalculé chaque jour).
-8. **Horloge reculée** : on garde le multiplicateur déjà figé, sans pénalité.
-9. **Intensité du calendrier** : volume = reps + secondes de gainage / 5 ; seuils 1 / 40 / 100 / 200.
-10. **Semaines** : du lundi au dimanche.
-11. **Quête du jour** : exercice choisi par bonus de repos, pas par XP brute (sinon l'exercice le plus dur serait toujours proposé). Égalité → plus d'XP par rép.
-12. **Difficulté** : Advanced montre aussi les exercices Normal (squats, pompes…), Beginner uniquement les simplifiés. Par défaut : Normal.
-13. **Mode caméra par défaut** ; le mode manuel est un réglage. Changer d'exercice ferme la série.
-14. **Détection caméra** : WebView + MediaPipe Pose Landmarker « lite » (tasks-vision 1.0.1, modèle float16/1), embarqués dans l'app (pas de téléchargement : évite la règle App Store 2.5.2 sur le code téléchargé). Seule la version WebAssembly SIMD est incluse (iOS 16.4+ / WebView Android récente) ; sinon l'app propose le mode manuel. Seuils de détection par exercice dans `src/pose/trackers.ts` ; certains exercices (mollets, supermans, nordic curls) sont difficiles à détecter et sont à tester.
-15. **Pas de bonus de qualité** : une répétition compte seulement si l'amplitude complète est atteinte (seuils), sinon rien. Pas d'XP partielle.
-16. **Épées** : liste finie de 9 épées (×1 à ×25). Au-delà, pas de nouvelle arme pour l'instant.
-17. **Anciennes sauvegardes** : les niveaux des muscles sont conservés, les ennemis repartent du niveau 1.
-18. **Vulnérabilités npm** : `npm audit` signale des failles « moderate » dans des dépendances d'Expo (outils de build, et `decode-uri-component` via expo-router, seulement exploitable par un lien profond malformé). Corrigées côté Expo ; ne pas lancer `npm audit fix --force` (casserait les versions SDK 57).
+1. **SDK**: Expo SDK 57. Since SDK 57, Expo Go on iPhone requires being **signed in to the same Expo account** (free) in the CLI (`npx expo login`) and in the Expo Go app.
+2. **Base XP per exercise**: invented values (4 to 18 XP/rep depending on difficulty, 1.5 to 3 XP/s for holds). To be tested.
+3. **Holds**: 1 sword hit every 5 s held. Remaining seconds carry over to the next hold.
+4. **Lunges, single-leg exercises**: one rep = one side.
+5. **Set**: stays open while the same exercise is kept on the same day; closed by "Finish set", an exercise change or an app restart.
+6. **Overkill damage**: not carried over to the next enemy.
+7. **Set crossing midnight**: starts a new set (the multiplier is recomputed each day).
+8. **Clock moved back**: the already frozen multiplier is kept, no penalty.
+9. **Calendar intensity**: volume = reps + hold seconds / 5; thresholds 1 / 40 / 100 / 200.
+10. **Weeks**: Monday to Sunday.
+11. **Daily quest**: exercise chosen by rest bonus, not raw XP (otherwise the hardest exercise would always be suggested). Tie → more XP per rep.
+12. **Difficulty**: Advanced also shows Normal exercises (squats, push-ups…), Beginner only the simplified ones. Default: Normal.
+13. **Camera mode by default**; manual mode is a setting. Changing exercise closes the set.
+14. **Camera detection**: WebView + MediaPipe Pose Landmarker "lite" (tasks-vision 1.0.1, float16/1 model), bundled in the app (no download: avoids App Store rule 2.5.2 on downloaded code). Only the WebAssembly SIMD build is included (iOS 16.4+ / recent Android WebView); otherwise the app offers manual mode. Detection thresholds per exercise in `src/pose/trackers.ts`; some exercises (calf raises, supermans, nordic curls) are hard to detect and need testing.
+15. **No quality bonus**: a rep counts only if the full range of motion is reached (thresholds), otherwise nothing. No partial XP.
+16. **Swords**: fixed list of 9 swords (×1 to ×25). No new weapon beyond that for now.
+17. **Old saves**: muscle levels are kept, enemies restart at level 1.
+18. **npm vulnerabilities**: `npm audit` reports "moderate" issues in Expo dependencies (build tools, and `decode-uri-component` via expo-router, only exploitable through a malformed deep link). Fixed on Expo's side; don't run `npm audit fix --force` (it would break the SDK 57 versions).
