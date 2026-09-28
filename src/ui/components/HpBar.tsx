@@ -4,23 +4,23 @@ import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-na
 
 import { colors } from '../theme';
 
-/** Boss health bar that slides down on every hit and refills instantly for a new boss. */
-export function HpBar({ hp, maxHp, bossIndex }: { hp: number; maxHp: number; bossIndex: number }) {
+/** Enemy health bar that slides down on every hit and refills instantly for a new enemy. */
+export function HpBar({ hp, maxHp, enemyKey }: { hp: number; maxHp: number; enemyKey: number }) {
   const ratio = maxHp > 0 ? hp / maxHp : 0;
   const value = useSharedValue(ratio);
   const trail = useSharedValue(ratio);
-  const lastBoss = useRef(bossIndex);
+  const lastEnemy = useRef(enemyKey);
 
   useEffect(() => {
-    if (lastBoss.current !== bossIndex) {
-      lastBoss.current = bossIndex;
+    if (lastEnemy.current !== enemyKey) {
+      lastEnemy.current = enemyKey;
       value.value = ratio;
       trail.value = ratio;
       return;
     }
     value.value = withTiming(ratio, { duration: 140 });
     trail.value = withTiming(ratio, { duration: 600 });
-  }, [ratio, bossIndex, value, trail]);
+  }, [ratio, enemyKey, value, trail]);
 
   const fill = useAnimatedStyle(() => ({ width: `${value.value * 100}%` }));
   const trailFill = useAnimatedStyle(() => ({ width: `${trail.value * 100}%` }));

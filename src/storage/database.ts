@@ -24,6 +24,19 @@ const MIGRATIONS: string[] = [
     defeated_at TEXT NOT NULL
   );
   `,
+  // v2: monster levels. Old boss_kills rows are kept but no longer used.
+  `
+  CREATE TABLE IF NOT EXISTS kills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    level INTEGER NOT NULL,
+    stage INTEGER NOT NULL,
+    boss INTEGER NOT NULL,
+    max_hp INTEGER NOT NULL,
+    gold INTEGER NOT NULL,
+    defeated_at TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS kills_boss ON kills (boss);
+  `,
 ];
 
 /** Runs pending migrations, tracked with PRAGMA user_version. */

@@ -1,16 +1,22 @@
 import * as Haptics from 'expo-haptics';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
-  bossName,
-  EXERCISES,
+  ENEMIES,
+  enemyName,
+  exercisesForDifficulty,
   getExercise,
   hitDamage,
+  isBossStage,
+  isExerciseId,
   MUSCLE_NAMES,
   recommendExercises,
   toDayKey,
+  WEAPONS,
+  zoneForLevel,
   type ExerciseId,
   type WorkInput,
   type WorkOutcome,
@@ -19,10 +25,11 @@ import { useRepInput, type RepEvent } from '../input';
 import { useGame } from '../state/GameProvider';
 import { BattleArena } from '../ui/components/BattleArena';
 import { DailyTip } from '../ui/components/DailyTip';
+import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { GoldButton } from '../ui/components/GoldButton';
-import { Panel } from '../ui/components/Panel';
 import { HpBar } from '../ui/components/HpBar';
-import { formatAmount, formatNumber } from '../ui/format';
+import { Panel } from '../ui/components/Panel';
+import { formatAmount, formatCompact, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
 
@@ -31,19 +38,55 @@ const toWorkInput = (event: RepEvent): WorkInput =>
 
 function describe(outcome: WorkOutcome): string | null {
   const parts: string[] = [];
-  for (const boss of outcome.defeatedBosses) parts.push(`${bossName(boss.index)} est vaincu !`);
-  for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} niveau ${up.level} !`);
-  return parts.length > 0 ? parts.join('\n') : null;
+  for (const kill of outcome.kills) {
+    parts.push(
+      kill.boss
+        ? `Boss ${enemyName(kill.level, kill.stage)} defeated! Level ${kill.level + 1} unlocked · +${formatNumber(kill.gold)} gold`
+        : `${enemyName(kill.level, kill.stage)} defeated · +${formatNumber(kill.gold)} gold`,
+    );
+  }
+  for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
+  return parts.length > 0 ? parts.slice(-3).join('\n') : null;
 }
 
 export default function CombatScreen() {
-  const { state, openSet, work, closeSet } = useGame();
-  const [exerciseId, setExerciseId] = useState<ExerciseId>('pushup');
+  const { state, settings, openSet, work, closeSet, updateSettings } = useGame();
+  const params = useLocalSearchParams<{ exercise?: string }>();
+  const focused = useIsFocused();
+  const exercises = useMemo(() => exercisesForDifficulty(settings.difficulty), [settings.difficulty]);
+  const [exerciseId, setExerciseId] = useState<ExerciseId>(() => (exercises[0]?.id as ExerciseId) ?? 'pushup');
+  const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
-  const { source, controls } = useRepInput(exercise.unit);
+  const { source, controls } = useRepInput({
+    mode: settings.inputMode,
+    exerciseId,
+    active: focused,
+    repsPerPress: settings.repsPerPress,
+    onRepsPerPressChange: (repsPerPress) => updateSettings({ repsPerPress }),
+  });
   const { frame, enqueue } = useHitQueue();
   const [message, setMessage] = useState<string | null>(null);
   const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const selectExercise = (id: ExerciseId) => {
+    if (id === exerciseId) return;
+    closeSet();
+    setExerciseId(id);
+  };
+
+  // Exercise picked from another screen (muscle sheet).
+  useEffect(() => {
+    if (!params.exercise) return;
+    if (isExerciseId(params.exercise)) selectExercise(params.exercise);
+    router.setParams({ exercise: undefined });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.exercise]);
+
+  // Difficulty changed in Settings: keep the exercise only if it is still offered.
+  useEffect(() => {
+    if (!exercises.some((e) => e.id === exerciseId)) selectExercise(exercises[0]?.id as ExerciseId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exercises]);
 
   // The combat screen only knows the RepSource interface, never its implementation.
   const exerciseRef = useRef(exerciseId);
@@ -58,39 +101,43 @@ export default function CombatScreen() {
         if (text) {
           setMessage(text);
           if (messageTimer.current) clearTimeout(messageTimer.current);
-          messageTimer.current = setTimeout(() => setMessage(null), 2500);
+          messageTimer.current = setTimeout(() => setMessage(null), 3000);
         }
       }),
     [source, work, enqueue],
   );
   useEffect(() => () => void (messageTimer.current && clearTimeout(messageTimer.current)), []);
 
-  const boss = frame.boss ?? state.boss;
+  const enemy = frame.enemy ?? state.enemy;
+  const boss = isBossStage(enemy.stage);
+  const zone = zoneForLevel(enemy.level);
   const today = toDayKey(new Date());
-  const ranking = useMemo(() => recommendExercises(state, today), [state, today]);
-  const selectExercise = (id: ExerciseId) => {
-    if (id === exerciseId) return;
-    closeSet();
-    setExerciseId(id);
-  };
+  const ranking = useMemo(() => recommendExercises(state, today, settings.difficulty), [state, today, settings.difficulty]);
+  const weaponTier = WEAPONS.findIndex((w) => w.id === state.weaponId);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <View style={styles.bossHeader}>
-            <Text style={styles.bossIndex}>Boss n°{boss.index + 1}</Text>
-            <Text style={styles.bossName}>{bossName(boss.index)}</Text>
-            <HpBar hp={boss.hp} maxHp={boss.maxHp} bossIndex={boss.index} />
+          <View style={styles.topRow}>
+            <Text style={styles.zone}>{zone.title}</Text>
+            <Text style={styles.gold}>🪙 {formatCompact(state.gold)}</Text>
+          </View>
+          <View style={styles.enemyHeader}>
+            <Text style={styles.stage}>
+              Level {enemy.level} · {boss ? 'BOSS' : `Monster ${enemy.stage + 1}/${ENEMIES.monstersPerLevel}`}
+            </Text>
+            <Text style={[styles.enemyName, boss && styles.bossName]}>{enemyName(enemy.level, enemy.stage)}</Text>
+            <HpBar hp={enemy.hp} maxHp={enemy.maxHp} enemyKey={enemy.level * 1000 + enemy.stage} />
             <Text style={styles.hp}>
-              {formatNumber(boss.hp)} / {formatNumber(boss.maxHp)} PV
+              {formatNumber(enemy.hp)} / {formatNumber(enemy.maxHp)} HP
             </Text>
           </View>
 
-          <BattleArena boss={boss} frame={frame} />
+          <BattleArena enemy={enemy} frame={frame} weaponTier={Math.max(0, weaponTier)} />
 
           <View style={styles.damageRow}>
-            <Text style={styles.damageLabel}>Dégâts par coup</Text>
+            <Text style={styles.damageLabel}>Damage per hit</Text>
             <Text style={styles.damageValue}>{formatNumber(hitDamage(state))}</Text>
           </View>
           {message ? <Text style={styles.message}>{message}</Text> : null}
@@ -98,12 +145,12 @@ export default function CombatScreen() {
           <DailyTip ranking={ranking} selected={exerciseId} onSelect={selectExercise} />
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-            {EXERCISES.map((e) => {
+            {exercises.map((e) => {
               const selected = e.id === exerciseId;
               return (
                 <Pressable
                   key={e.id}
-                  onPress={() => selectExercise(e.id)}
+                  onPress={() => selectExercise(e.id as ExerciseId)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
                   style={[styles.chip, selected && styles.chipSelected]}
@@ -114,27 +161,35 @@ export default function CombatScreen() {
             })}
           </ScrollView>
 
+          <View style={styles.exerciseRow}>
+            <Text style={styles.exerciseName}>{exercise.name}</Text>
+            <Pressable onPress={() => setGuideFor(exerciseId)} hitSlop={8} accessibilityRole="button">
+              <Text style={styles.howTo}>ⓘ How to</Text>
+            </Pressable>
+          </View>
+
           {controls}
 
-          <Panel title="Série en cours">
+          <Panel title="Current set">
             {openSet ? (
               <>
                 <Text style={styles.setText}>
                   {getExercise(openSet.exerciseId).name} — {formatAmount(openSet.exerciseId, openSet.amount)} ·{' '}
-                  {formatNumber(openSet.damage)} dégâts
+                  {formatNumber(openSet.damage)} damage
                 </Text>
-                <GoldButton label="Terminer la série" variant="stone" onPress={closeSet} />
+                <GoldButton label="Finish set" variant="stone" onPress={closeSet} />
               </>
             ) : (
               <Text style={styles.muted}>
                 {exercise.unit === 'seconds'
-                  ? 'Lance le chronomètre et tiens la planche : un coup d’épée toutes les quelques secondes.'
-                  : 'Chaque répétition est un coup d’épée.'}
+                  ? 'Hold the position: one sword strike every few seconds.'
+                  : 'Every rep is a sword strike.'}
               </Text>
             )}
           </Panel>
         </ScrollView>
       </KeyboardAvoidingView>
+      <ExerciseGuideModal exerciseId={guideFor} onClose={() => setGuideFor(null)} />
     </SafeAreaView>
   );
 }
@@ -143,14 +198,18 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
-  bossHeader: { gap: spacing.xs },
-  bossIndex: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2 },
-  bossName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 24 },
-  hp: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 13, textAlign: 'right', fontVariant: ['tabular-nums'] },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  zone: { color: colors.gold, fontFamily: fonts.title, fontSize: 14, letterSpacing: 1 },
+  gold: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16 },
+  enemyHeader: { gap: spacing.xs },
+  stage: { color: colors.textMuted, fontSize: 12, textTransform: 'uppercase', letterSpacing: 2 },
+  enemyName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 24 },
+  bossName: { color: colors.goldLight },
+  hp: { color: colors.textMuted, fontSize: 13, textAlign: 'right', fontVariant: ['tabular-nums'] },
   damageRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: spacing.sm },
   damageLabel: { color: colors.textMuted, fontFamily: fonts.title, fontSize: 14 },
   damageValue: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 28 },
-  message: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16, textAlign: 'center' },
+  message: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 15, textAlign: 'center' },
   chips: { gap: spacing.sm, paddingVertical: spacing.xs },
   chip: {
     borderRadius: radius.lg,
@@ -161,8 +220,11 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   chipSelected: { backgroundColor: colors.parchment, borderColor: colors.gold },
-  chipText: { color: colors.text, fontFamily: fonts.body, fontSize: 14 },
+  chipText: { color: colors.text, fontSize: 14 },
   chipTextSelected: { color: colors.ink },
-  setText: { color: colors.text, fontFamily: fonts.body, fontSize: 15 },
-  muted: { color: colors.textMuted, fontFamily: fonts.body, fontSize: 14 },
+  exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  exerciseName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 18, flexShrink: 1 },
+  howTo: { color: colors.goldLight, fontFamily: fonts.title, fontSize: 14 },
+  setText: { color: colors.text, fontSize: 15 },
+  muted: { color: colors.textMuted, fontSize: 14 },
 });

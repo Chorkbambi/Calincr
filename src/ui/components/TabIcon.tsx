@@ -1,7 +1,7 @@
 import type { ColorValue } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 
-export type TabIconName = 'combat' | 'character' | 'calendar' | 'settings';
+export type TabIconName = 'combat' | 'character' | 'shop' | 'calendar' | 'settings';
 
 /** Hand-drawn line icons for the bottom tabs. */
 export function TabIcon({ name, color, size = 24 }: { name: TabIconName; color: ColorValue; size?: number }) {
@@ -19,6 +19,13 @@ export function TabIcon({ name, color, size = 24 }: { name: TabIconName; color: 
           <Path d="M5 10 Q5 3 12 3 Q19 3 19 10 L19 14 L5 14 Z" {...stroke} />
           <Path d="M12 3 L12 14 M8 9 L16 9" {...stroke} />
           <Path d="M7 14 L7 21 L17 21 L17 14" {...stroke} />
+        </>
+      ) : null}
+      {name === 'shop' ? (
+        <>
+          <Path d="M4 9 L20 9 L18.5 20 L5.5 20 Z" {...stroke} />
+          <Path d="M8.5 9 Q8.5 3.5 12 3.5 Q15.5 3.5 15.5 9" {...stroke} />
+          <Circle cx={12} cy={14.5} r={2} fill={color} />
         </>
       ) : null}
       {name === 'calendar' ? (

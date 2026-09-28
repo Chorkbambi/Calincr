@@ -7,15 +7,25 @@ const PALETTES = [
   { body: '#8a4a6a', dark: '#5a2a44', eye: '#ffd0f0' }, // plum
   { body: '#6a6a6a', dark: '#3a3a3a', eye: '#ff8a5a' }, // stone
   { body: '#a0402f', dark: '#62201a', eye: '#ffd24a' }, // ember
+  { body: '#3f7f78', dark: '#1f4f4a', eye: '#e0ff9a' }, // teal
 ];
 
-/** Original boss drawn from simple shapes; the look varies with the boss index. */
-export function BossFigure({ index, size = 180 }: { index: number; size?: number }) {
-  const palette = PALETTES[index % PALETTES.length] ?? PALETTES[0]!;
-  const horns = index % 3 !== 1;
-  const oneEye = index % 4 === 3;
-  const crowned = index % 12 === 11;
-  const id = `boss-${index % PALETTES.length}`;
+const BODIES = [
+  // round blob
+  'M100 48 C150 48 172 90 170 130 C168 168 140 184 100 184 C60 184 32 168 30 130 C28 90 50 48 100 48 Z',
+  // tall brute
+  'M100 36 C136 36 150 70 152 110 C156 150 146 184 100 184 C54 184 44 150 48 110 C50 70 64 36 100 36 Z',
+  // wide beast
+  'M100 64 C160 60 186 100 184 138 C182 172 150 184 100 184 C50 184 18 172 16 138 C14 100 40 60 100 64 Z',
+];
+
+/** Original monster drawn from simple shapes; `look` varies it, bosses are bigger and crowned. */
+export function EnemyFigure({ look, boss = false, size = 180 }: { look: number; boss?: boolean; size?: number }) {
+  const palette = PALETTES[look % PALETTES.length] ?? PALETTES[0]!;
+  const body = BODIES[Math.floor(look / 2) % BODIES.length] ?? BODIES[0]!;
+  const horns = look % 3 !== 1;
+  const oneEye = look % 4 === 3;
+  const id = `enemy-${look % PALETTES.length}`;
   return (
     <Svg width={size} height={size} viewBox="0 0 200 200">
       <Defs>
@@ -37,15 +47,12 @@ export function BossFigure({ index, size = 180 }: { index: number; size?: number
           <Path d="M140 64 L148 40 L128 56 Z" />
         </G>
       )}
-      {crowned ? <Path d="M72 46 L80 22 L92 40 L100 16 L108 40 L120 22 L128 46 Z" fill="#d4a73c" stroke="#8c6a1f" strokeWidth={2} /> : null}
-      <Path
-        d="M100 48 C150 48 172 90 170 130 C168 168 140 184 100 184 C60 184 32 168 30 130 C28 90 50 48 100 48 Z"
-        fill={`url(#${id})`}
-        stroke={palette.dark}
-        strokeWidth={3}
-      />
+      <Path d={body} fill={`url(#${id})`} stroke={palette.dark} strokeWidth={3} />
       <Path d="M34 128 Q14 140 18 164 Q34 150 44 146 Z" fill={palette.dark} />
       <Path d="M166 128 Q186 140 182 164 Q166 150 156 146 Z" fill={palette.dark} />
+      {boss ? (
+        <Path d="M68 44 L76 14 L90 34 L100 6 L110 34 L124 14 L132 44 Z" fill="#d4a73c" stroke="#8c6a1f" strokeWidth={2} />
+      ) : null}
       {oneEye ? (
         <G>
           <Circle cx={100} cy={100} r={20} fill="#1a120c" />

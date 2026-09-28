@@ -2,14 +2,17 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 import {
   isExerciseId,
+  restoreSettings,
   restoreState,
   type DayKey,
-  type DefeatedBoss,
   type GameState,
+  type Kill,
   type SetRecord,
+  type Settings,
 } from '../game';
 
 const STATE_KEY = 'game_state';
+const SETTINGS_KEY = 'settings';
 
 interface SetRow {
   id: string;
@@ -57,14 +60,32 @@ export class GameRepository {
     return restoreState(row ? parseJson<unknown>(row.value, null) : null);
   }
 
-  /** Saves the state, the open set and any defeated bosses atomically. */
-  async saveProgress(state: GameState, set: SetRecord | null, defeated: readonly DefeatedBoss[]): Promise<void> {
+  async loadSettings(): Promise<Settings> {
+    const row = await this.db.getFirstAsync<{ value: string }>('SELECT value FROM kv WHERE key = ?', SETTINGS_KEY);
+    return restoreSettings(row ? parseJson<unknown>(row.value, null) : null);
+  }
+
+  async saveSettings(settings: Settings): Promise<void> {
+    await this.putKv(SETTINGS_KEY, JSON.stringify(settings));
+  }
+
+  /** Saves the state alone (shop purchases). */
+  async saveState(state: GameState): Promise<void> {
+    await this.putKv(STATE_KEY, JSON.stringify(state));
+  }
+
+  private async putKv(key: string, value: string): Promise<void> {
+    await this.db.runAsync(
+      'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
+      key,
+      value,
+    );
+  }
+
+  /** Saves the state, the open set and any kills atomically. */
+  async saveProgress(state: GameState, set: SetRecord | null, kills: readonly Kill[]): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync(
-        'INSERT INTO kv (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value',
-        STATE_KEY,
-        JSON.stringify(state),
-      );
+      await this.putKv(STATE_KEY, JSON.stringify(state));
       if (set) {
         await this.db.runAsync(
           `INSERT INTO sets (id, started_at, updated_at, day, exercise_id, amount, xp_json, multipliers_json, damage, hits)
@@ -84,12 +105,15 @@ export class GameRepository {
           set.hits,
         );
       }
-      for (const boss of defeated) {
+      for (const kill of kills) {
         await this.db.runAsync(
-          'INSERT OR REPLACE INTO boss_kills (boss_index, max_hp, defeated_at) VALUES (?, ?, ?)',
-          boss.index,
-          boss.maxHp,
-          boss.defeatedAt,
+          'INSERT INTO kills (level, stage, boss, max_hp, gold, defeated_at) VALUES (?, ?, ?, ?, ?, ?)',
+          kill.level,
+          kill.stage,
+          kill.boss ? 1 : 0,
+          kill.maxHp,
+          kill.gold,
+          kill.defeatedAt,
         );
       }
     });
@@ -105,16 +129,36 @@ export class GameRepository {
     return rows.map(toSet).filter((s): s is SetRecord => s !== null);
   }
 
-  async listDefeatedBosses(): Promise<DefeatedBoss[]> {
-    const rows = await this.db.getAllAsync<{ boss_index: number; max_hp: number; defeated_at: string }>(
-      'SELECT * FROM boss_kills ORDER BY boss_index DESC',
-    );
-    return rows.map((r) => ({ index: r.boss_index, maxHp: r.max_hp, defeatedAt: r.defeated_at }));
+  /** Most recent boss kills, newest first. */
+  async listBossKills(limit = 50): Promise<Kill[]> {
+    const rows = await this.db.getAllAsync<{
+      level: number;
+      stage: number;
+      boss: number;
+      max_hp: number;
+      gold: number;
+      defeated_at: string;
+    }>('SELECT * FROM kills WHERE boss = 1 ORDER BY id DESC LIMIT ?', limit);
+    return rows.map((r) => ({
+      level: r.level,
+      stage: r.stage,
+      boss: r.boss === 1,
+      maxHp: r.max_hp,
+      gold: r.gold,
+      defeatedAt: r.defeated_at,
+    }));
   }
 
+  async countKills(): Promise<number> {
+    const row = await this.db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM kills');
+    return row?.n ?? 0;
+  }
+
+  /** Erases the game progress and history but keeps the player's settings. */
   async resetAll(): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.execAsync('DELETE FROM kv; DELETE FROM sets; DELETE FROM boss_kills;');
+      await this.db.runAsync('DELETE FROM kv WHERE key = ?', STATE_KEY);
+      await this.db.execAsync('DELETE FROM sets; DELETE FROM boss_kills; DELETE FROM kills;');
     });
   }
 }

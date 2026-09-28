@@ -21,6 +21,7 @@ import { Panel } from '../ui/components/Panel';
 import {
   formatAmount,
   formatDayLong,
+  formatDayShort,
   formatMultiplier,
   formatNumber,
   formatTime,
@@ -31,7 +32,7 @@ import { colors, fonts, radius, spacing } from '../ui/theme';
 
 function TotalsList({ totals }: { totals: ExerciseTotals }) {
   const rows = EXERCISES.filter((e) => (totals[e.id] ?? 0) > 0);
-  if (rows.length === 0) return <Text style={styles.muted}>Aucune activité.</Text>;
+  if (rows.length === 0) return <Text style={styles.muted}>No activity.</Text>;
   return (
     <>
       {rows.map((e) => (
@@ -56,7 +57,7 @@ function SetLine({ set }: { set: SetRecord }) {
         <Text style={styles.value}>{formatAmount(set.exerciseId, set.amount)}</Text>
       </View>
       <Text style={styles.detail}>
-        +{formatNumber(xp)} XP · multiplicateur {multipliers.join(' / ')} · {formatNumber(set.damage)} dégâts
+        +{formatNumber(xp)} XP · multiplier {multipliers.join(' / ')} · {formatNumber(set.damage)} damage
       </Text>
     </View>
   );
@@ -101,13 +102,13 @@ export default function CalendarScreen() {
     <SafeAreaView style={styles.screen} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.monthHeader}>
-          <Pressable onPress={() => shiftMonth(-1)} hitSlop={12} accessibilityLabel="Mois précédent">
+          <Pressable onPress={() => shiftMonth(-1)} hitSlop={12} accessibilityLabel="Previous month">
             <Text style={styles.arrow}>‹</Text>
           </Pressable>
           <Text style={styles.monthTitle}>
             {MONTH_NAMES[month.month - 1]} {month.year}
           </Text>
-          <Pressable onPress={() => shiftMonth(1)} hitSlop={12} accessibilityLabel="Mois suivant">
+          <Pressable onPress={() => shiftMonth(1)} hitSlop={12} accessibilityLabel="Next month">
             <Text style={styles.arrow}>›</Text>
           </Pressable>
         </View>
@@ -148,16 +149,16 @@ export default function CalendarScreen() {
             </View>
           ))}
           <View style={styles.legend}>
-            <Text style={styles.muted}>Moins</Text>
+            <Text style={styles.muted}>Less</Text>
             {colors.heat.map((c) => (
               <View key={c} style={[styles.legendBox, { backgroundColor: c }]} />
             ))}
-            <Text style={styles.muted}>Plus</Text>
+            <Text style={styles.muted}>More</Text>
           </View>
         </Panel>
 
         <Panel title={formatDayLong(selected)}>
-          {selectedDay ? selectedDay.sets.map((s) => <SetLine key={s.id} set={s} />) : <Text style={styles.muted}>Jour de repos.</Text>}
+          {selectedDay ? selectedDay.sets.map((s) => <SetLine key={s.id} set={s} />) : <Text style={styles.muted}>Rest day.</Text>}
           {selectedDay ? (
             <View style={styles.dayTotals}>
               <TotalsList totals={totalsByExercise(selectedDay.sets)} />
@@ -165,16 +166,16 @@ export default function CalendarScreen() {
           ) : null}
         </Panel>
 
-        <Panel title={`Total ${MONTH_NAMES[month.month - 1]?.toLowerCase()}`}>
+        <Panel title={`${MONTH_NAMES[month.month - 1]} total`}>
           <TotalsList totals={totalsByExercise(monthSets)} />
         </Panel>
 
-        <Panel title="Par semaine">
-          {weeks.length === 0 ? <Text style={styles.muted}>Aucune activité.</Text> : null}
+        <Panel title="By week">
+          {weeks.length === 0 ? <Text style={styles.muted}>No activity.</Text> : null}
           {weeks.map((w) => (
             <View key={w.weekStart} style={styles.weekBlock}>
               <Text style={styles.weekTitle}>
-                Semaine du {formatDayLong(w.weekStart).replace(/^\S+ /, '')}
+                Week of {formatDayShort(w.weekStart)}
               </Text>
               <TotalsList totals={w.totals} />
             </View>

@@ -47,10 +47,11 @@ export default function RootLayout() {
             tabBarLabelStyle: { fontFamily: fonts.title, fontSize: 10 },
           }}
         >
-          <Tabs.Screen name="index" options={{ title: 'Combat', tabBarIcon: icon('combat') }} />
-          <Tabs.Screen name="character" options={{ title: 'Personnage', tabBarIcon: icon('character') }} />
-          <Tabs.Screen name="calendar" options={{ title: 'Calendrier', tabBarIcon: icon('calendar') }} />
-          <Tabs.Screen name="settings" options={{ title: 'Réglages', tabBarIcon: icon('settings') }} />
+          <Tabs.Screen name="index" options={{ title: 'Fight', tabBarIcon: icon('combat') }} />
+          <Tabs.Screen name="character" options={{ title: 'Hero', tabBarIcon: icon('character') }} />
+          <Tabs.Screen name="shop" options={{ title: 'Shop', tabBarIcon: icon('shop') }} />
+          <Tabs.Screen name="calendar" options={{ title: 'Calendar', tabBarIcon: icon('calendar') }} />
+          <Tabs.Screen name="settings" options={{ title: 'Settings', tabBarIcon: icon('settings') }} />
         </Tabs>
       </GameProvider>
     </SQLiteProvider>

@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { BossState, Hit } from '../game';
+import type { EnemyState, Hit } from '../game';
 
 export interface HitFrame {
   /** Increments on every played hit, drives the animations. */
   seq: number;
   hit: Hit | null;
-  /** Boss as it should look right now (lags behind the real state during a burst). */
-  boss: BossState | null;
+  /** Enemy as it should look right now (lags behind the real state during a burst). */
+  enemy: EnemyState | null;
 }
 
 const DEFEAT_PAUSE_MS = 700;
 const TAP_INTERVAL_MS = 120;
 
 /**
- * Plays hits one after another so bursts ("Ajouter un nombre") animate quickly
- * instead of all at once, while the game state is already up to date.
+ * Plays hits one after another so bursts animate quickly instead of all at once,
+ * while the game state is already up to date.
  */
 export function useHitQueue(): { frame: HitFrame; enqueue: (hits: Hit[], burst: boolean) => void } {
-  const [frame, setFrame] = useState<HitFrame>({ seq: 0, hit: null, boss: null });
+  const [frame, setFrame] = useState<HitFrame>({ seq: 0, hit: null, enemy: null });
   const queue = useRef<{ hit: Hit; delay: number }[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const seq = useRef(0);
@@ -27,16 +27,12 @@ export function useHitQueue(): { frame: HitFrame; enqueue: (hits: Hit[], burst: 
     const next = queue.current.shift();
     if (!next) {
       timer.current = null;
-      setFrame((f) => ({ ...f, boss: null }));
+      setFrame((f) => ({ ...f, enemy: null }));
       return;
     }
     const { hit, delay } = next;
     seq.current += 1;
-    setFrame({
-      seq: seq.current,
-      hit,
-      boss: { index: hit.bossIndex, hp: hit.bossHpAfter, maxHp: hit.bossMaxHp },
-    });
+    setFrame({ seq: seq.current, hit, enemy: hit.enemy });
     timer.current = setTimeout(playNext, hit.defeated ? Math.max(delay, DEFEAT_PAUSE_MS) : delay);
   }, []);
 

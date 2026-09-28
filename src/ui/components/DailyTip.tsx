@@ -7,8 +7,8 @@ import { Panel } from './Panel';
 
 function bonusLabel(multiplier: number): string {
   const pct = Math.round((multiplier - 1) * 100);
-  if (pct === 0) return 'XP normale';
-  return pct > 0 ? `+${pct} % d’XP` : `${pct} % d’XP`;
+  if (pct === 0) return 'normal XP';
+  return pct > 0 ? `+${pct}% XP` : `${pct}% XP`;
 }
 
 /** Best exercise of the day according to each muscle's rest bonus. */
@@ -25,14 +25,14 @@ export function DailyTip({
   if (!best) return null;
   const alternatives = others.filter((r) => r.effectiveMultiplier >= 1).slice(0, 2);
   return (
-    <Panel title="Conseil du jour">
+    <Panel title="Today’s best pick">
       {best.effectiveMultiplier < 1 ? (
-        <Text style={styles.muted}>Tous tes muscles sont fatigués : un jour de repos rapportera plus demain.</Text>
+        <Text style={styles.muted}>All your muscles are tired: a rest day will pay off more tomorrow.</Text>
       ) : null}
       <Pressable
         onPress={() => onSelect(best.exerciseId)}
         accessibilityRole="button"
-        accessibilityLabel={`Choisir ${getExercise(best.exerciseId).name}`}
+        accessibilityLabel={`Choose ${getExercise(best.exerciseId).name}`}
         style={[styles.best, best.exerciseId === selected && styles.bestSelected]}
       >
         <View style={styles.row}>
@@ -47,7 +47,7 @@ export function DailyTip({
       </Pressable>
       {alternatives.length > 0 ? (
         <View style={styles.row}>
-          <Text style={styles.muted}>Aussi :</Text>
+          <Text style={styles.muted}>Also:</Text>
           {alternatives.map((r) => (
             <Pressable key={r.exerciseId} onPress={() => onSelect(r.exerciseId)} hitSlop={6}>
               <Text style={styles.alt}>
