@@ -2,45 +2,44 @@
 
 [![CI](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml/badge.svg)](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml)
 
-Application de fitness gamifiée (Ring Fit × jeu incrémental) : chaque répétition de pompes, squats, tractions…
-est un coup d'épée contre un monstre. Tes muscles montent de niveau, tes dégâts augmentent, et le repos est récompensé.
+A gamified fitness app (Ring Fit × incremental game): every push-up, squat or pull-up you do is a sword strike
+against a monster. Your muscles level up, your damage grows, and rest is rewarded.
 
-- **Gratuite, sans pub, sans compte, sans serveur** : tout reste sur le téléphone, l'app n'utilise jamais internet.
-- **Comptage par la caméra** (détection de posture sur le téléphone, rien n'est enregistré) ou à la main.
-- Fonctionne dans **Expo Go** (iPhone et Android) et en APK Android.
-- Interface en anglais. Politique de confidentialité : [`PRIVACY.md`](PRIVACY.md).
+- **Free, no ads, no account, no server**: everything stays on your phone and the app never uses the internet.
+- **Reps counted by the camera** (pose detection runs on the phone, nothing is recorded) or by hand.
+- Runs in **Expo Go** (iPhone and Android) and as an Android APK.
+- Privacy policy: [`PRIVACY.md`](PRIVACY.md).
 
-## Fonctionnalités
+## Features
 
-- **Combat** : 10 monstres puis un boss par niveau, zones qui changent tous les 10 niveaux, combos (coups rapides =
-  plus de dégâts), **faiblesses** (chaque monstre craint un style : Push, Pull, Legs ou Core → +50 % de dégâts ;
-  les exercices qui la touchent sont marqués ⚡).
-- **Titan de la semaine** : une énorme barre de vie que tous tes coups de la semaine entament, grosse récompense en or.
-- **Muscles** : 10 muscles avec niveaux et XP ; bonus de repos, malus de fatigue.
-- **Quête du jour** : un exercice et un objectif basé sur ta dernière séance, série de jours (streak) protégeable
-  par des **Streak Freezes**.
-- **Records personnels** : battre ta meilleure série d'un exercice rapporte de l'or.
-- **Boutique** : épées (dégâts), armures (plus d'or), anneaux (combos, faiblesses), cosmétiques (halo de l'épée,
-  couleur des dégâts), Streak Freezes.
-- **Succès** (20), **récap de la semaine**, **graphiques de progression** par exercice, **cartes à partager** (image).
-- Minuteur de repos, rappel quotidien local, favoris, calibration de la caméra, sauvegarde dans un fichier,
-  grands boutons.
+- **Combat**: 10 monsters then a boss per level, a new zone every 10 levels, combos (fast hits = more damage),
+  **weaknesses** (each monster fears one style: Push, Pull, Legs or Core → +50% damage; exercises that hit it
+  are marked ⚡).
+- **Weekly Titan**: a huge health bar that every hit of the week chips away at, for a big gold reward.
+- **Muscles**: 10 muscles with levels and XP; bonus for rested muscles, penalty for tired ones.
+- **Daily quest**: one exercise and a target based on your last session, with a day streak you can protect
+  with **Streak Freezes**.
+- **Personal records**: beating your best set of an exercise earns gold.
+- **Shop**: swords (damage), armor (more gold), rings (combos, weaknesses), cosmetics (sword glow, damage number
+  colour), Streak Freezes.
+- **Achievements** (20), **weekly recap**, **progress charts** per exercise, **share cards** (pictures).
+- Rest timer, local daily reminder, favourite exercises, camera calibration, backup to a file, large buttons.
 
-## Lancer l'app sur un iPhone depuis un PC Windows
+## Run the app on an iPhone from a Windows PC
 
-### 1. Prérequis (une seule fois)
+### 1. Requirements (once)
 
-- **Node.js LTS** (22 ou plus récent) : <https://nodejs.org> → installer, puis vérifier dans PowerShell :
+- **Node.js LTS** (22 or newer): <https://nodejs.org> → install, then check in PowerShell:
   ```powershell
   node -v
   npm -v
   ```
-- **Git** : <https://git-scm.com/download/win>
-- Sur l'iPhone : l'app **Expo Go** depuis l'App Store (version récente, compatible SDK 57).
-- Un **compte Expo gratuit** : <https://expo.dev/signup>. Depuis le SDK 57, Expo Go sur iPhone exige d'être
-  connecté **avec le même compte** dans le terminal et dans l'app.
+- **Git**: <https://git-scm.com/download/win>
+- On the iPhone: the **Expo Go** app from the App Store (a recent version, compatible with SDK 57).
+- A **free Expo account**: <https://expo.dev/signup>. Since SDK 57, Expo Go on iPhone requires you to be signed in
+  **with the same account** in the terminal and in the app.
 
-### 2. Récupérer le projet
+### 2. Get the project
 
 ```powershell
 git clone https://github.com/Chorkbambi/Cali-Incr.git
@@ -48,126 +47,124 @@ cd Cali-Incr
 npm install
 ```
 
-### 3. Se connecter à Expo
+### 3. Sign in to Expo
 
-Dans le terminal :
+In the terminal:
 
 ```powershell
 npx expo login
 ```
 
-Sur l'iPhone : ouvrir Expo Go → icône de profil en haut à droite → se connecter avec le même compte.
+On the iPhone: open Expo Go → profile icon at the top right → sign in with the same account.
 
-### 4. Démarrer le serveur de développement
+### 4. Start the development server
 
 ```powershell
 npx expo start
 ```
 
-Un QR code s'affiche dans le terminal.
+A QR code appears in the terminal.
 
-### 5. Ouvrir l'app sur l'iPhone
+### 5. Open the app on the iPhone
 
-- Le PC et l'iPhone doivent être sur **le même réseau Wi-Fi**.
-- Ouvrir l'app **Appareil photo** de l'iPhone, viser le QR code, puis toucher la bannière « Ouvrir dans Expo Go ».
-- Le premier chargement prend quelques secondes.
+- The PC and the iPhone must be on **the same Wi-Fi network**.
+- Open the iPhone **Camera** app, point it at the QR code, then tap the "Open in Expo Go" banner.
+- The first load takes a few seconds.
 
-### Si ça ne se connecte pas : mode tunnel
+### If it doesn't connect: tunnel mode
 
-Réseau d'entreprise / d'école, Wi-Fi invité, pare-feu Windows, VPN… Si l'iPhone n'arrive pas à charger l'app :
+Company or school network, guest Wi-Fi, Windows firewall, VPN… If the iPhone can't load the app:
 
 ```powershell
 npx expo start --tunnel
 ```
 
-Le tunnel passe par Internet (plus lent, mais contourne les problèmes de réseau local). La première fois,
-Expo peut proposer d'installer `@expo/ngrok` : répondre oui.
+The tunnel goes through the internet (slower, but it gets around local network problems). The first time,
+Expo may offer to install `@expo/ngrok`: answer yes.
 
-Autres pistes : autoriser Node.js dans le pare-feu Windows (réseau privé), désactiver le VPN,
-et appuyer sur `r` dans le terminal pour recharger l'app.
+Other things to try: allow Node.js in the Windows firewall (private network), turn off the VPN,
+and press `r` in the terminal to reload the app.
 
-## Développement
+## Development
 
 ```powershell
-npm test            # tests unitaires Jest (logique de jeu)
-npx tsc --noEmit    # vérification TypeScript
+npm test            # Jest unit tests (game logic)
+npx tsc --noEmit    # TypeScript check
 ```
 
-Ces deux vérifications tournent aussi automatiquement sur GitHub à chaque push (GitHub Actions,
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : une croix rouge sur le commit = quelque chose est cassé,
-à corriger avant de compiler un APK.
+Both checks also run automatically on GitHub on every push (GitHub Actions,
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)): a red cross on a commit means something is broken —
+fix it before building an APK.
 
-- Les chiffres d'équilibrage (XP, courbes, multiplicateurs de repos, PV des boss, exercices) sont tous dans
+- All balancing numbers (XP, curves, rest multipliers, enemy HP, exercises) live in
   [`src/game/config.ts`](src/game/config.ts).
-- Pour ajouter une dépendance : `npx expo install <paquet>` (et vérifier qu'elle est incluse dans Expo Go).
-- Architecture, règles du jeu et conventions : voir [`CLAUDE.md`](CLAUDE.md).
+- To add a dependency: `npx expo install <package>` (and check that it is included in Expo Go).
+- Architecture, game rules and conventions: see [`CLAUDE.md`](CLAUDE.md) (in French).
 
-## Installer l'app Android sur ton téléphone (gratuit, sans Play Store)
+## Install the Android app on your phone (free, without the Play Store)
 
-1. Crée un compte gratuit sur <https://expo.dev> (le même que pour Expo Go) et connecte-toi : `npx expo login`.
-2. Lance la compilation dans le cloud d'Expo (gratuit dans la limite du plan gratuit) :
+1. Create a free account at <https://expo.dev> (the same one as for Expo Go) and sign in: `npx expo login`.
+2. Start the build in Expo's cloud (free within the free plan's limits):
    ```powershell
    npx eas-cli@latest build --platform android --profile preview
    ```
-   La première fois, accepte de créer le projet EAS et de générer la clé de signature Android (laisse EAS la gérer).
-3. À la fin (10 à 20 min), la commande affiche un lien et un QR code : ouvre-le sur le téléphone Android,
-   télécharge l'APK et installe-le (Android demandera d'autoriser l'installation depuis le navigateur).
-4. **Mettre à jour** : refais `git pull`, `npm install`, puis la même commande de build, et installe le nouvel APK
-   par-dessus l'ancien. La progression est conservée. Le numéro de version augmente automatiquement.
-5. Pour des testeurs : envoie-leur le même lien. Google limite progressivement l'installation d'apps de développeurs
-   non vérifiés ; le compte gratuit « limited distribution » de Google permet jusqu'à 20 appareils.
+   The first time, accept creating the EAS project and generating the Android signing key (let EAS manage it).
+3. When it finishes (10 to 20 min), the command shows a link and a QR code: open it on the Android phone,
+   download the APK and install it (Android will ask you to allow installs from the browser).
+4. **Updating**: run `git pull`, `npm install`, then the same build command, and install the new APK over the old
+   one. Your progress is kept. The version number goes up automatically.
+5. For testers: send them the same link. Google is gradually restricting installs of apps from unverified
+   developers; Google's free "limited distribution" account allows up to 20 devices.
 
-Identifiant de l'app : `com.chorkbambi.calincr` (Android et iOS). Il ne pourra plus changer après la première
-publication sur un store.
+App identifier: `com.chorkbambi.calincr` (Android and iOS). It can't change after the first store release.
 
-L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer une vraie app ; en attendant, utilise Expo Go.
+On iPhone, installing a real app requires a paid Apple Developer account ($99/year); until then, use Expo Go.
 
-## Écrans (l'app est en anglais)
+## Screens
 
-1. **Fight** — zone, monstre ou boss avec sa barre de PV et sa **faiblesse**, or, dégâts par coup, **quête du jour**
-   (un exercice + un objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), Titan de la
-   semaine, ton record sur l'exercice, choix de l'exercice
-   (bouton « How to » pour l'explication, ☆ pour épingler un exercice en tête, « Last time » = ta dernière séance),
-   comptage des répétitions par la caméra ou à la main, combo (coups rapides = plus de dégâts), minuteur de repos.
-2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
-   recommandés), niveaux / XP / état de repos, **succès** (qui rapportent de l'or ; toucher un succès obtenu pour
-   le partager en image), boss vaincus.
-3. **Shop** — onglets Swords, Gear (armures et anneaux), Style (cosmétiques) et Items (Streak Freeze).
-4. **Calendar** — vue mensuelle colorée selon le volume, détail d'un jour, **graphiques de progression** par exercice
-   (total et meilleure série par semaine, toucher une semaine pour voir sa valeur), totaux par semaine et par mois.
-5. **Settings** — mode caméra ou manuel, difficulté (Beginner / Normal / Advanced), minuteur de repos, rappel quotidien,
-   grands boutons, **sauvegarde** (exporter / importer un fichier), vie privée, réinitialisation.
+1. **Fight** — zone, monster or boss with its HP bar and **weakness**, gold, damage per hit, **daily quest**
+   (one exercise + a rep target based on your last session, bonus XP and gold, day streak), Weekly Titan, your
+   record on the exercise, exercise picker ("How to" button for instructions, ☆ to pin an exercise to the front,
+   "Last time" = your last session), rep counting by camera or by hand, combo (fast hits = more damage), rest timer.
+2. **Hero** — sword, body silhouette with each muscle coloured by level (tap a muscle to see recommended
+   exercises), levels / XP / rest status, **achievements** (they pay gold; tap an unlocked one to share it as a
+   picture), defeated bosses.
+3. **Shop** — tabs Swords, Gear (armor and rings), Style (cosmetics) and Items (Streak Freeze).
+4. **Calendar** — month view shaded by volume, day details, **progress charts** per exercise (total and best set
+   per week; tap a week to see its value), weekly and monthly totals.
+5. **Settings** — camera or manual mode, difficulty (Beginner / Normal / Advanced), rest timer, daily reminder,
+   large buttons, **backup** (export / import a file), privacy, reset.
 
-Chaque lundi (à la première ouverture), un **récap de la semaine** passée s'affiche (avec un bouton pour le partager
-en image : seulement des chiffres du jeu, jamais la caméra).
+Every Monday (on the first launch of the week), a **recap of last week** is shown, with a button to share it as a
+picture (game numbers only, never anything from the camera).
 
-## Sauvegarder sa progression
+## Back up your progress
 
-Settings → **Export backup** : crée un fichier `calincr-backup-AAAA-MM-JJ.json` que tu ranges où tu veux (Drive,
-e-mail, fichiers…). Sur un nouveau téléphone : Settings → **Import backup** et choisis ce fichier (il remplace tout).
+Settings → **Export backup**: creates a `calincr-backup-YYYY-MM-DD.json` file that you keep wherever you like
+(Drive, e-mail, files…). On a new phone: Settings → **Import backup** and pick that file (it replaces everything).
 
-## Mode caméra et vie privée
+## Camera mode and privacy
 
-- La caméra frontale filme pendant que tu fais l'exercice ; la détection de posture (Google MediaPipe) tourne
-  **sur le téléphone**. La vidéo n'est jamais enregistrée ni envoyée : seules les répétitions comptées sont gardées.
-- **Fonctionne hors ligne** : le moteur de détection de posture (Google MediaPipe, environ 18 Mo) est intégré à
-  l'app. Aucun téléchargement, aucune connexion internet.
-- Si la caméra rate des répétitions, les boutons « +1 rep » / « +5 reps » (ou « +5 s » pour les gainages) permettent
-  de corriger à la main. Comme en mode manuel, « Undo » n'annule rien.
-- Le bouton « How to » de chaque exercice montre une petite animation et les étapes.
-- Choisis d'abord l'exercice, puis appuie sur **Start camera** : l'écran de préparation indique quelles parties du
-  corps doivent être visibles. La caméra s'ouvre en plein écran ; le bouton **Rotate** passe en paysage (pratique
-  pour les pompes ou le gainage). Elle s'arrête avec **Stop camera**, en changeant d'exercice ou en quittant l'onglet.
-- Place le téléphone de profil, à environ 2 m (chaque exercice indique où le placer).
-- Au premier lancement, un petit tutoriel (3 écrans) puis le choix caméra / mode manuel et du minuteur de repos.
-- **Calibrate** : fais 3 reps lentes et complètes, l'app adapte ses seuils à ton amplitude (pour cet exercice).
-- Sur l'écran caméra, le bouton **Image: on/off** cache ton image (seul un bonhomme est affiché).
-- Politique de confidentialité : dans Settings, et dans [`PRIVACY.md`](PRIVACY.md).
-- Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
-  (et tu peux choisir combien de reps chaque appui ajoute).
+- The front camera films you while you exercise; pose detection (Google MediaPipe) runs **on the phone**. The video
+  is never recorded or sent: only the counted reps are kept.
+- **Works offline**: the pose detection engine (Google MediaPipe, about 18 MB) is built into the app. No download,
+  no internet connection.
+- If the camera misses reps, the "+1 rep" / "+5 reps" buttons (or "+5 s" for holds) let you correct by hand.
+  As in manual mode, "Undo" doesn't undo anything.
+- Each exercise's "How to" button shows a short animation and the steps.
+- Pick the exercise first, then tap **Start camera**: the preparation screen tells you which body parts must be
+  visible. The camera opens full screen; the **Rotate** button switches to landscape (handy for push-ups or planks).
+  It stops with **Stop camera**, when you change exercise or when you leave the tab.
+- Place the phone side-on, about 2 m away (each exercise says where to put it).
+- On first launch: a short tutorial (3 screens), then the choice between camera and manual mode, and the rest timer.
+- **Calibrate**: do 3 slow, full reps and the app adapts its thresholds to your range of motion (for that exercise).
+- On the camera screen, the **Image: on/off** button hides your picture (only a stick figure is shown).
+- Privacy policy: in Settings, and in [`PRIVACY.md`](PRIVACY.md).
+- Rather not film yourself? **Settings → Manual (no camera)**: you tap the Rep button yourself
+  (and choose how many reps each press adds).
 
-## Dépôt public
+## Public repository
 
-Le code est public : chacun peut le lire et vérifier que l'app n'envoie rien. Aucun secret n'est dans le dépôt
-(la clé de signature Android est gardée par EAS, pas ici). Pour le Play Store, l'adresse de la politique de
-confidentialité peut être celle de [`PRIVACY.md`](https://github.com/Chorkbambi/Cali-Incr/blob/main/PRIVACY.md).
+The code is public: anyone can read it and check that the app sends nothing. No secrets are stored in the
+repository (the Android signing key is kept by EAS, not here). For the Play Store, the privacy policy URL can be
+the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Cali-Incr/blob/main/PRIVACY.md).

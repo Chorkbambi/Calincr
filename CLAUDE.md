@@ -176,7 +176,7 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
 
 ## Conventions
 
-- **Tout le jeu est en anglais** (interface). Code, identifiants et commentaires en anglais. Docs (README, CLAUDE.md) en français.
+- **Tout le jeu est en anglais** (interface). Code, identifiants et commentaires en anglais. README en anglais ; CLAUDE.md en français.
 - Aucun chiffre d'équilibrage en dur ailleurs que dans `config.ts`.
 - `src/game/` et `src/pose/` ne doivent jamais importer React, React Native ou Expo. Toute nouvelle règle y est testée.
 - Les fonctions de `src/game/` sont pures : elles reçoivent `now: Date` au lieu de lire l'horloge.
