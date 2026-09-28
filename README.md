@@ -1,9 +1,30 @@
 # Calincr
 
-Application de fitness gamifiée : chaque répétition de pompes, squats, tractions… est un coup d'épée
-contre un boss. Tes muscles montent de niveau, tes dégâts augmentent, et le repos est récompensé.
+[![CI](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml/badge.svg)](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml)
 
-Fonctionne entièrement dans **Expo Go** (iPhone et Android), sans compte ni serveur : tout est stocké sur le téléphone.
+Application de fitness gamifiée (Ring Fit × jeu incrémental) : chaque répétition de pompes, squats, tractions…
+est un coup d'épée contre un monstre. Tes muscles montent de niveau, tes dégâts augmentent, et le repos est récompensé.
+
+- **Gratuite, sans pub, sans compte, sans serveur** : tout reste sur le téléphone, l'app n'utilise jamais internet.
+- **Comptage par la caméra** (détection de posture sur le téléphone, rien n'est enregistré) ou à la main.
+- Fonctionne dans **Expo Go** (iPhone et Android) et en APK Android.
+- Interface en anglais. Politique de confidentialité : [`PRIVACY.md`](PRIVACY.md).
+
+## Fonctionnalités
+
+- **Combat** : 10 monstres puis un boss par niveau, zones qui changent tous les 10 niveaux, combos (coups rapides =
+  plus de dégâts), **faiblesses** (chaque monstre craint un style : Push, Pull, Legs ou Core → +50 % de dégâts ;
+  les exercices qui la touchent sont marqués ⚡).
+- **Titan de la semaine** : une énorme barre de vie que tous tes coups de la semaine entament, grosse récompense en or.
+- **Muscles** : 10 muscles avec niveaux et XP ; bonus de repos, malus de fatigue.
+- **Quête du jour** : un exercice et un objectif basé sur ta dernière séance, série de jours (streak) protégeable
+  par des **Streak Freezes**.
+- **Records personnels** : battre ta meilleure série d'un exercice rapporte de l'or.
+- **Boutique** : épées (dégâts), armures (plus d'or), anneaux (combos, faiblesses), cosmétiques (halo de l'épée,
+  couleur des dégâts), Streak Freezes.
+- **Succès** (20), **récap de la semaine**, **graphiques de progression** par exercice, **cartes à partager** (image).
+- Minuteur de repos, rappel quotidien local, favoris, calibration de la caméra, sauvegarde dans un fichier,
+  grands boutons.
 
 ## Lancer l'app sur un iPhone depuis un PC Windows
 
@@ -72,6 +93,10 @@ npm test            # tests unitaires Jest (logique de jeu)
 npx tsc --noEmit    # vérification TypeScript
 ```
 
+Ces deux vérifications tournent aussi automatiquement sur GitHub à chaque push (GitHub Actions,
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml)) : une croix rouge sur le commit = quelque chose est cassé,
+à corriger avant de compiler un APK.
+
 - Les chiffres d'équilibrage (XP, courbes, multiplicateurs de repos, PV des boss, exercices) sont tous dans
   [`src/game/config.ts`](src/game/config.ts).
 - Pour ajouter une dépendance : `npx expo install <paquet>` (et vérifier qu'elle est incluse dans Expo Go).
@@ -99,18 +124,22 @@ L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer un
 
 ## Écrans (l'app est en anglais)
 
-1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, **quête du jour** (un exercice + un
-   objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), choix de l'exercice
+1. **Fight** — zone, monstre ou boss avec sa barre de PV et sa **faiblesse**, or, dégâts par coup, **quête du jour**
+   (un exercice + un objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), Titan de la
+   semaine, ton record sur l'exercice, choix de l'exercice
    (bouton « How to » pour l'explication, ☆ pour épingler un exercice en tête, « Last time » = ta dernière séance),
    comptage des répétitions par la caméra ou à la main, combo (coups rapides = plus de dégâts), minuteur de repos.
 2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
-   recommandés), niveaux / XP / état de repos, **succès** (qui rapportent de l'or), boss vaincus.
-3. **Shop** — acheter et équiper de meilleures épées avec l'or gagné sur les monstres.
-4. **Calendar** — vue mensuelle colorée selon le volume, détail d'un jour, totaux par semaine et par mois.
+   recommandés), niveaux / XP / état de repos, **succès** (qui rapportent de l'or ; toucher un succès obtenu pour
+   le partager en image), boss vaincus.
+3. **Shop** — onglets Swords, Gear (armures et anneaux), Style (cosmétiques) et Items (Streak Freeze).
+4. **Calendar** — vue mensuelle colorée selon le volume, détail d'un jour, **graphiques de progression** par exercice
+   (total et meilleure série par semaine, toucher une semaine pour voir sa valeur), totaux par semaine et par mois.
 5. **Settings** — mode caméra ou manuel, difficulté (Beginner / Normal / Advanced), minuteur de repos, rappel quotidien,
    grands boutons, **sauvegarde** (exporter / importer un fichier), vie privée, réinitialisation.
 
-Chaque lundi (à la première ouverture), un **récap de la semaine** passée s'affiche.
+Chaque lundi (à la première ouverture), un **récap de la semaine** passée s'affiche (avec un bouton pour le partager
+en image : seulement des chiffres du jeu, jamais la caméra).
 
 ## Sauvegarder sa progression
 
@@ -136,3 +165,9 @@ e-mail, fichiers…). Sur un nouveau téléphone : Settings → **Import backup*
 - Politique de confidentialité : dans Settings, et dans [`PRIVACY.md`](PRIVACY.md).
 - Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
   (et tu peux choisir combien de reps chaque appui ajoute).
+
+## Dépôt public
+
+Le code est public : chacun peut le lire et vérifier que l'app n'envoie rien. Aucun secret n'est dans le dépôt
+(la clé de signature Android est gardée par EAS, pas ici). Pour le Play Store, l'adresse de la politique de
+confidentialité peut être celle de [`PRIVACY.md`](https://github.com/Chorkbambi/Cali-Incr/blob/main/PRIVACY.md).

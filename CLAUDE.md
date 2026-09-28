@@ -29,13 +29,15 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - Bouton « Image on/off » sur la caméra plein écran : n'affiche que le squelette sur fond noir (réglage `hideCameraImage`,
   `window.__setHideVideo` dans la page). Badge permanent « 🔒 Not recorded ».
 - Politique de confidentialité : `src/ui/content/privacyPolicy.ts` (affichée dans Settings et l'écran de bienvenue),
-  copie dans `PRIVACY.md` — garder les deux identiques. Le dépôt reste privé : pour les stores, il faudra héberger
-  cette politique ailleurs (page web publique).
+  copie dans `PRIVACY.md` — garder les deux identiques. Le dépôt est **public** : ne jamais y mettre de secret
+  (clés, jetons, keystore) ; l'URL GitHub de `PRIVACY.md` sert de page publique pour les stores.
 - Ne jamais ajouter d'analytics, de pub, de SDK tiers qui envoie des données, ni de logs contenant des données de posture.
 - Rappel quotidien : notification **locale** planifiée par le téléphone (expo-notifications, jamais de push ni de jeton).
 - Sauvegarde : fichier JSON exporté via la feuille de partage du téléphone ; l'import est validé strictement
   (`src/game/backup.ts`, taille max, version) et remplace tout dans une transaction.
 - La calibration caméra ne garde que deux seuils d'angle par exercice (kv `calibrations`), jamais de points du corps.
+- Cartes à partager (`ShareCardModal`, react-native-view-shot + expo-sharing) : uniquement des chiffres du jeu,
+  jamais d'image de la caméra ; rien n'est envoyé sans que le joueur choisisse une app.
 
 ## Nom et publication
 
@@ -52,8 +54,9 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
   expo-haptics, expo-camera (permission uniquement), react-native-webview, expo-screen-orientation,
   expo-asset + expo-file-system (lecture des fichiers MediaPipe embarqués), expo-sharing + expo-document-picker
-  (sauvegarde), expo-notifications (rappel local). `metro.config.js` ajoute les extensions wasm/task/bin.
-- Tests : Jest 29 via `jest-expo` (fichiers `__tests__/*.test.ts`).
+  (sauvegarde), expo-notifications (rappel local), react-native-view-shot (cartes à partager). `metro.config.js` ajoute les extensions wasm/task/bin.
+- Tests : Jest 29 via `jest-expo` (fichiers `__tests__/*.test.ts`). GitHub Actions (`.github/workflows/ci.yml`)
+  lance `npm ci`, `tsc --noEmit` et `npm test` à chaque push sur main.
 
 ## Commandes
 
@@ -78,10 +81,12 @@ src/
     zones.ts         zones (nom, décor, monstres, boss), changent tous les 10 niveaux
     enemy.ts         PV des monstres/boss, enchaînement des niveaux, or gagné
     engine.ts        GameState, dégâts, applyWork() (reps/secondes → coups + XP + or)
-    shop.ts          achat / équipement des épées
+    shop.ts          achat / équipement des épées, armures, anneaux, cosmétiques, Streak Freeze
+    styles.ts        style d'un exercice (push/pull/legs/core), faiblesse des ennemis, effets de l'équipement
+    records.ts       records personnels (meilleure série par exercice)
     settings.ts      réglages (mode caméra/manuel, difficulté, reps par appui) + validation
     sets.ts          agrégation des séries enregistrées
-    stats.ts         calendrier : volume, intensité, totaux semaine/mois
+    stats.ts         calendrier : volume, intensité, totaux semaine/mois, progression hebdo d'un exercice
     recommend.ts     exercices classés selon le bonus de repos
     quest.ts         quête du jour : exercice, objectif selon l'historique, récompense, streak
     achievements.ts  succès (progression, récompense en or selon le palier)
@@ -104,7 +109,8 @@ src/
   storage/     expo-sqlite : migrations (database.ts) et GameRepository (seul endroit qui connaît le schéma)
   state/       GameProvider (contexte React) : applique la logique, sauvegarde, expose l'état aux écrans
   ui/          thème, formatage, composants (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap, WelcomeModal,
-               WeeklyRecapModal, RestTimer, ComboBadge, AchievementsPanel, BackupPanel…)
+               WeeklyRecapModal, RestTimer, ComboBadge, AchievementsPanel, BackupPanel, WeeklyBossBar,
+               ProgressChart, ExerciseProgressPanel, ShareCardModal…)
   app/         écrans Expo Router : index (Fight), character (Hero), shop, calendar, settings
 ```
 
@@ -148,7 +154,17 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
   avec un bouton Rotate (paysage) ; elle s'arrête si on change d'exercice, quitte l'onglet ou appuie sur Stop.
   L'app est verrouillée en portrait (expo-screen-orientation) sauf la caméra plein écran.
 - **Combo** : des coups espacés de moins de 10 s s'enchaînent ; +5 % de dégâts tous les 5 coups, plafond +50 % (`COMBO`).
-- **Succès** (`achievements.ts`) : 17 succès, récompense en or = PV du 1er monstre du niveau × 2 / 5 / 12 selon le palier
+- **Faiblesses** : style d'un exercice = groupe (push/pull/legs/core) qui reçoit le plus de poids d'XP ; chaque ennemi
+  craint un style (`enemyWeakness`) → +50 % de dégâts (`WEAKNESS`). Chaque difficulté couvre les 4 styles (testé).
+- **Titan de la semaine** (`WEEKLY_BOSS`) : créé au 1er coup de la semaine, PV = dégâts par coup × 300 (min. 300),
+  chaque coup le touche ; récompense = PV du 1er monstre du niveau × 10 (min. 100).
+- **Records** : meilleure série par exercice ; la battre (pas la 1re fois) paie l'or une fois par série (`RECORDS`).
+  Records initialisés depuis l'historique au chargement (`seedRecords`).
+- **Streak Freeze** (`STREAK_FREEZE`) : 2 max, prix = PV du 1er monstre × 3 ; consommés automatiquement (un par jour
+  manqué) si la série de quêtes est > 0 (`createDailyQuest` → `freezesUsed`, `spendStreakFreezes`).
+- **Équipement** (`GEAR`) : une armure (+or) et un anneau (fenêtre de combo, plafond de combo, bonus de faiblesse).
+  **Cosmétiques** (`COSMETICS`) : halo de l'épée et couleur des dégâts, purement visuels.
+- **Succès** (`achievements.ts`) : 20 succès, récompense en or = PV du 1er monstre du niveau × 2 / 5 / 12 selon le palier
   (min. 20). Stats à vie dans `GameState.lifetime`.
 - **Minuteur de repos** : après « Finish set », compte à rebours (off / 30 / 60 / 90 / 120 s), demandé au premier lancement.
 - **Favoris** : exercices épinglés en tête de liste ; « Last time » affiche la dernière séance de chaque exercice.

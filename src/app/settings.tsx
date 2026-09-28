@@ -224,7 +224,7 @@ export default function SettingsScreen() {
           <Text style={styles.text}>• In camera mode, the “Image” button hides your picture and shows only a stick figure.</Text>
           <Text style={styles.text}>• The app never uses the microphone.</Text>
           <Text style={styles.text}>
-            • Daily reminders are scheduled by your phone itself. Backups are files you choose where to keep.
+            • Daily reminders are scheduled by your phone itself. Backups and shared pictures go only where you choose.
           </Text>
           <GoldButton label="Read the privacy policy" variant="stone" onPress={() => setPolicyOpen(true)} />
         </Panel>

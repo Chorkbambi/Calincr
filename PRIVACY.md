@@ -21,7 +21,7 @@ Last updated: 2026-09-28
 ## Data stored on your phone
 
 - The app stores on your phone only: your muscle levels, gold, swords, defeated enemies, achievements, training history (exercise, reps, date), daily quest, camera calibration thresholds and settings.
-- This data never leaves your phone unless you export a backup yourself. The developer has no access to it.
+- This data never leaves your phone unless you export a backup or share a picture yourself. The developer has no access to it.
 - You can erase it at any time in Settings → Reset progress, or by uninstalling the app.
 
 ## Daily reminder
@@ -32,6 +32,10 @@ Last updated: 2026-09-28
 
 - “Export backup” creates a file with your progress and lets you choose where to put it (files, e-mail, cloud drive…). Where it goes is your choice; the app itself sends nothing.
 - “Import backup” reads a file you pick, checks it strictly and replaces your progress with it.
+
+## Sharing pictures
+
+- “Share” on the weekly recap or an achievement creates a picture with game numbers only (reps, levels, monsters) and opens your phone's share menu. It never contains anything from the camera. Nothing is sent unless you pick an app to share it with.
 
 ## Children
 
