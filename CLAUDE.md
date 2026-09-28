@@ -25,7 +25,7 @@ Les répétitions sont comptées par la caméra (détection de posture sur le t�
 - Tout message de la WebView est validé strictement (`src/pose/messages.ts`) ; toute sauvegarde relue est validée
   (`restoreState`, `restoreSettings`). Requêtes SQL toujours paramétrées.
 - La caméra est coupée dès qu'on quitte l'onglet Fight (la WebView est démontée).
-- Premier lancement : écran de bienvenue (`WelcomeModal`) où le joueur choisit caméra ou manuel (réglage `onboarded`).
+- Premier lancement : écran de bienvenue (`WelcomeModal`, tutoriel puis choix caméra ou manuel), réglage `onboardingVersion`.
 - Bouton « Image on/off » sur la caméra plein écran : n'affiche que le squelette sur fond noir (réglage `hideCameraImage`,
   `window.__setHideVideo` dans la page). Badge permanent « 🔒 Not recorded ».
 - Politique de confidentialité : `src/ui/content/privacyPolicy.ts` (affichée dans Settings et l'écran de bienvenue),
