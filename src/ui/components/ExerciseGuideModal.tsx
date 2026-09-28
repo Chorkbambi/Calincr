@@ -2,6 +2,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 
 import { EXERCISE_GUIDES, getExercise, MUSCLE_NAMES, muscleWeights, type ExerciseId } from '../../game';
 import { colors, fonts, radius, spacing } from '../theme';
+import { ExerciseAnimationView } from './ExerciseAnimationView';
 import { GoldButton } from './GoldButton';
 
 const TIER_LABELS = { beginner: 'Beginner', normal: 'Normal', advanced: 'Advanced' } as const;
@@ -23,6 +24,7 @@ export function ExerciseGuideModal({ exerciseId, onClose }: { exerciseId: Exerci
                 .map(([m, w]) => `${MUSCLE_NAMES[m]} ${Math.round(w * 100)}%`)
                 .join(' · ')}
             </Text>
+            <ExerciseAnimationView exerciseId={exerciseId!} />
             {guide.steps.map((step, i) => (
               <View key={i} style={styles.step}>
                 <Text style={styles.stepNumber}>{i + 1}</Text>
