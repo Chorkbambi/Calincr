@@ -45,7 +45,8 @@ const INPUT_MODES: { value: InputMode; label: string; description: string }[] = 
   {
     value: 'camera',
     label: 'Camera',
-    description: 'Your phone watches your movements and counts reps automatically. Analysed on the phone only.',
+    description:
+      'Your phone watches your movements and counts reps automatically (you can still add missed reps by hand). Analysed on the phone only; needs internet when it starts.',
   },
   {
     value: 'manual',
@@ -103,8 +104,8 @@ export default function SettingsScreen() {
             saved or sent. Only rep counts are kept.
           </Text>
           <Text style={styles.text}>
-            • The only internet use is downloading the body-tracking library (Google MediaPipe) the first time camera mode
-            starts. Nothing is uploaded.
+            • Camera mode needs internet when it starts: it downloads Google’s body-tracking engine (MediaPipe, about
+            18 MB) so the analysis can run on your phone. It is a download only — nothing is ever uploaded.
           </Text>
           <Text style={styles.text}>• The camera is switched off as soon as you leave the Fight tab.</Text>
           <Text style={styles.text}>• Prefer not to film yourself? Choose Manual mode above.</Text>

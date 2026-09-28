@@ -70,6 +70,7 @@ src/
     RepSource.ts         interface RepSource (événements 'reps' et 'seconds')
     CameraRepSource.ts   mode caméra (par défaut) ; camera/ = page WebView + composant
     ManualRepSource.ts   mode manuel : bouton Rep (× reps par appui), chronomètre, faux "Undo"
+                         (le mode caméra a aussi des boutons de correction : CameraRepSource.addManually)
     useRepInput.tsx      choisit l'implémentation selon les réglages
   storage/     expo-sqlite : migrations (database.ts) et GameRepository (seul endroit qui connaît le schéma)
   state/       GameProvider (contexte React) : applique la logique, sauvegarde, expose l'état aux écrans
@@ -105,6 +106,9 @@ Flux d'une répétition : `RepSource` émet un événement → l'écran Fight ap
 - **Conseil du jour** (écran Fight) : parmi les exercices du mode de difficulté, multiplicateur effectif = Σ (poids × multiplicateur de repos).
 - **Mode manuel** : le bouton Rep ajoute « reps par appui » (1 à 50). Le bouton Undo n'annule rien : il affiche
   « Made a mistake? Too bad — you'll have to make up for it! » (volontaire).
+- **Mode caméra** : correction manuelle possible (+1 / +5 reps, +5 / +15 s pour les gainages) si la caméra rate des reps ;
+  même faux Undo. L'app explique que le mode caméra a besoin d'internet au démarrage (téléchargement de MediaPipe, ~18 Mo, rien n'est envoyé).
+- **How to** : chaque exercice a une animation (bonhomme en SVG, `src/ui/exerciseAnimations.ts` : 2 poses interpolées).
 
 ## Conventions
 

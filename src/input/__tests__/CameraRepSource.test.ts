@@ -28,4 +28,18 @@ describe('CameraRepSource', () => {
     expect(states).toEqual(['error']);
     expect(source.getState()).toEqual({ stage: 'error', code: 'camera_denied' });
   });
+
+  it('accepts manual corrections for missed reps or seconds', () => {
+    const source = new CameraRepSource('plank');
+    const events: RepEvent[] = [];
+    source.subscribe((e) => events.push(e));
+    source.addManually(1, 'reps');
+    source.addManually(5, 'seconds');
+    source.addManually(0, 'reps');
+    source.addManually(Number.NaN, 'reps');
+    expect(events).toEqual([
+      { type: 'reps', count: 1, burst: false },
+      { type: 'seconds', seconds: 5 },
+    ]);
+  });
 });

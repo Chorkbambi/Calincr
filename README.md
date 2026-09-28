@@ -91,7 +91,12 @@ npx tsc --noEmit    # vérification TypeScript
 
 - La caméra frontale filme pendant que tu fais l'exercice ; la détection de posture (Google MediaPipe) tourne
   **sur le téléphone**. La vidéo n'est jamais enregistrée ni envoyée : seules les répétitions comptées sont gardées.
-- La première fois, l'app télécharge la bibliothèque de détection (quelques Mo) : il faut internet à ce moment-là.
+- **Internet requis au lancement du mode caméra** : l'app télécharge le moteur de détection de posture de Google
+  (MediaPipe, environ 18 Mo) pour que l'analyse tourne sur le téléphone. C'est un téléchargement uniquement :
+  rien n'est envoyé. Le téléphone peut en garder une copie pour démarrer plus vite ensuite.
+- Si la caméra rate des répétitions, les boutons « +1 rep » / « +5 reps » (ou « +5 s » pour les gainages) permettent
+  de corriger à la main. Comme en mode manuel, « Undo » n'annule rien.
+- Le bouton « How to » de chaque exercice montre une petite animation et les étapes.
 - Place le téléphone de profil, à environ 2 m, tout le corps visible (chaque exercice indique où le placer).
 - Tu préfères ne pas te filmer ? **Settings → Manual (no camera)** : tu tapes toi-même sur le bouton Rep
   (et tu peux choisir combien de reps chaque appui ajoute).
