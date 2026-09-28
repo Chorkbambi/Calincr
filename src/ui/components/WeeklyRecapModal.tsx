@@ -13,7 +13,7 @@ import {
   WEAPONS,
   type WeeklyRecap,
 } from '../../game';
-import { cancelDailyReminder, scheduleDailyReminder } from '../../notifications/reminders';
+import { scheduleDailyReminder } from '../../notifications/reminders';
 import { useGame } from '../../state/GameProvider';
 import { formatAmount, formatDayShort, formatDuration, formatNumber } from '../format';
 import { ShareCardModal } from './ShareCardModal';
@@ -57,8 +57,8 @@ export function WeeklyRecapModal() {
   const initialReminder = useRef(settings.reminder);
   useEffect(() => {
     const { enabled, hour, minute } = initialReminder.current;
+    // Only touch the notifications module when a reminder is on: loading it in Expo Go prints warnings.
     if (enabled) void scheduleDailyReminder(hour, minute);
-    else void cancelDailyReminder();
   }, []);
 
   if (!recap) return null;

@@ -290,10 +290,12 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       setOpenSet(null);
       calibrationsRef.current = imported;
       setCalibrations(imported);
+      const hadReminder = settingsRef.current.reminder.enabled;
       settingsRef.current = parsed.data.settings;
       setSettings(parsed.data.settings);
       const { reminder } = parsed.data.settings;
-      void (reminder.enabled ? scheduleDailyReminder(reminder.hour, reminder.minute) : cancelDailyReminder());
+      if (reminder.enabled) void scheduleDailyReminder(reminder.hour, reminder.minute);
+      else if (hadReminder) void cancelDailyReminder();
       questRef.current = parsed.data.quest;
       setQuest(parsed.data.quest);
       commitState(parsed.data.state);
