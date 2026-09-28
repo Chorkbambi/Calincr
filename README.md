@@ -1,6 +1,6 @@
 # Calincr
 
-[![CI](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml/badge.svg)](https://github.com/Chorkbambi/Cali-Incr/actions/workflows/ci.yml)
+[![CI](https://github.com/Chorkbambi/Calincr/actions/workflows/ci.yml/badge.svg)](https://github.com/Chorkbambi/Calincr/actions/workflows/ci.yml)
 
 A gamified fitness app (Ring Fit × incremental game): every push-up, squat or pull-up you do is a sword strike
 against a monster. Your muscles level up, your damage grows, and rest is rewarded.
@@ -42,8 +42,8 @@ against a monster. Your muscles level up, your damage grows, and rest is rewarde
 ### 2. Get the project
 
 ```powershell
-git clone https://github.com/Chorkbambi/Cali-Incr.git
-cd Cali-Incr
+git clone https://github.com/Chorkbambi/Calincr.git
+cd Calincr
 npm install
 ```
 
@@ -167,4 +167,4 @@ Settings → **Export backup**: creates a `calincr-backup-YYYY-MM-DD.json` file 
 
 The code is public: anyone can read it and check that the app sends nothing. No secrets are stored in the
 repository (the Android signing key is kept by EAS, not here). For the Play Store, the privacy policy URL can be
-the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Cali-Incr/blob/main/PRIVACY.md).
+the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Calincr/blob/main/PRIVACY.md).
