@@ -17,6 +17,7 @@ import {
   type SetRecord,
 } from '../game';
 import { useGame } from '../state/GameProvider';
+import { ExerciseProgressPanel } from '../ui/components/ExerciseProgressPanel';
 import { Panel } from '../ui/components/Panel';
 import {
   formatAmount,
@@ -169,6 +170,8 @@ export default function CalendarScreen() {
         <Panel title={`${MONTH_NAMES[month.month - 1]} total`}>
           <TotalsList totals={totalsByExercise(monthSets)} />
         </Panel>
+
+        <ExerciseProgressPanel today={today} />
 
         <Panel title="By week">
           {weeks.length === 0 ? <Text style={styles.muted}>No activity.</Text> : null}
