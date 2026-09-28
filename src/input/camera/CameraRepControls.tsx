@@ -13,24 +13,25 @@ import { Panel } from '../../ui/components/Panel';
 import { colors, fonts, radius, spacing } from '../../ui/theme';
 import type { CameraRepSource, CameraState } from '../CameraRepSource';
 import { UNDO_MESSAGE } from '../ManualRepControls';
+import { sendMediapipeAssets } from './mediapipeAssets';
 import { isAllowedCameraNavigation, WEBVIEW_ORIGIN_WHITELIST } from './navigation';
 import { CAMERA_PAGE_BASE_URL, POSE_CAMERA_HTML } from './poseCameraPage';
 
-export const INTERNET_NOTICE =
-  'Internet is needed when camera mode starts: the app downloads Google’s body-tracking engine (MediaPipe, about 18 MB) so it can run on your phone. It is a download only — your video is never uploaded. Your phone may keep a copy to start faster next time.';
+export const OFFLINE_NOTICE =
+  'Works offline: the body-tracking engine (Google MediaPipe) is built into the app and runs on your phone. No internet needed, nothing is ever sent.';
 
 const ERROR_TEXT: Record<Extract<CameraState, { stage: 'error' }>['code'], string> = {
   camera_denied: 'Camera access was refused. Allow it in your phone settings, or switch to manual mode in Settings.',
   camera_unavailable: 'No camera available.',
-  model_failed:
-    'Could not download the body-tracking engine. Check your internet connection: it is needed to start camera mode (download only — nothing is uploaded). You can also switch to manual mode in Settings.',
+  model_failed: 'Body tracking could not start on this phone. Try again, or switch to manual mode in Settings.',
+  unsupported: 'This phone is too old for camera tracking. Please use manual mode in Settings.',
   unknown: 'Something went wrong with the camera.',
 };
 
 const allowOnlyCameraPage = (request: ShouldStartLoadRequest) => isAllowedCameraNavigation(request.url);
 
 function statusText(state: CameraState): string {
-  if (state.stage === 'loading') return 'Downloading the body-tracking engine (needs internet)…';
+  if (state.stage === 'loading') return 'Starting body tracking…';
   if (state.stage === 'error') return ERROR_TEXT[state.code];
   if (state.missing.length > 0) return `Can’t see your ${describeBodyParts(state.missing)} — adjust the phone`;
   if (!state.body.tracking) return 'Step back until you are fully in view';
@@ -67,6 +68,7 @@ export function CameraRepControls({
   const [count, setCount] = useState(0);
   const [undoShown, setUndoShown] = useState(false);
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const webViewRef = useRef<WebView>(null);
   const exercise = getExercise(exerciseId);
   const timed = exercise.unit === 'seconds';
   const guide = EXERCISE_GUIDES[exerciseId];
@@ -134,7 +136,7 @@ export function CameraRepControls({
           Camera mode counts your reps by watching your movements. The video is analysed on your phone only: it is never
           recorded, saved or sent anywhere.
         </Text>
-        <Text style={styles.muted}>🌐 {INTERNET_NOTICE}</Text>
+        <Text style={styles.muted}>📴 {OFFLINE_NOTICE}</Text>
         <GoldButton
           label={permission.canAskAgain ? 'Allow camera' : 'Camera blocked — open phone settings'}
           onPress={() => void requestPermission()}
@@ -157,7 +159,7 @@ export function CameraRepControls({
         </Text>
         <GoldButton big label="Start camera" onPress={start} disabled={!active} />
         <Text style={styles.muted}>🔒 Analysed on your phone. Nothing is recorded, saved or sent.</Text>
-        <Text style={styles.muted}>🌐 {INTERNET_NOTICE}</Text>
+        <Text style={styles.muted}>📴 {OFFLINE_NOTICE}</Text>
       </Panel>
 
       <Modal
@@ -173,7 +175,15 @@ export function CameraRepControls({
             source={{ html: POSE_CAMERA_HTML, baseUrl: CAMERA_PAGE_BASE_URL }}
             originWhitelist={WEBVIEW_ORIGIN_WHITELIST}
             onShouldStartLoadWithRequest={allowOnlyCameraPage}
-            onMessage={(event: WebViewMessageEvent) => source.handleMessage(event.nativeEvent.data)}
+            ref={webViewRef}
+            onMessage={(event: WebViewMessageEvent) => {
+              const msg = source.handleMessage(event.nativeEvent.data);
+              if (msg?.type === 'needAssets') {
+                sendMediapipeAssets((script) => webViewRef.current?.injectJavaScript(script)).catch(() =>
+                  source.handleMessage(JSON.stringify({ type: 'error', code: 'model_failed' })),
+                );
+              }
+            }}
             mediaCapturePermissionGrantType="grantIfSameHostElseDeny"
             allowsInlineMediaPlayback
             mediaPlaybackRequiresUserAction={false}

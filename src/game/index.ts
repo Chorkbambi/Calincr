@@ -13,3 +13,4 @@ export * from './sets';
 export * from './stats';
 export * from './recommend';
 export * from './serialization';
+export * from './quest';

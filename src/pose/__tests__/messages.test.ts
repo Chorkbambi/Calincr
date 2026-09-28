@@ -5,6 +5,8 @@ const lm = Array.from({ length: 33 }, () => [0.5, 0.5, 0.9]);
 describe('parseBridgeMessage', () => {
   it('accepts well-formed messages', () => {
     expect(parseBridgeMessage('{"type":"ready"}')).toEqual({ type: 'ready' });
+    expect(parseBridgeMessage('{"type":"needAssets"}')).toEqual({ type: 'needAssets' });
+    expect(parseBridgeMessage('{"type":"error","code":"unsupported"}')).toEqual({ type: 'error', code: 'unsupported' });
     expect(parseBridgeMessage('{"type":"error","code":"camera_denied"}')).toEqual({ type: 'error', code: 'camera_denied' });
     const pose = parseBridgeMessage(JSON.stringify({ type: 'pose', t: 12, aspect: 0.75, lm }));
     expect(pose?.type).toBe('pose');

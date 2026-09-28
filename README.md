@@ -1,4 +1,4 @@
-# Cali-Incr
+# Calincr
 
 Application de fitness gamifiée : chaque répétition de pompes, squats, tractions… est un coup d'épée
 contre un boss. Tes muscles montent de niveau, tes dégâts augmentent, et le repos est récompensé.
@@ -77,9 +77,28 @@ npx tsc --noEmit    # vérification TypeScript
 - Pour ajouter une dépendance : `npx expo install <paquet>` (et vérifier qu'elle est incluse dans Expo Go).
 - Architecture, règles du jeu et conventions : voir [`CLAUDE.md`](CLAUDE.md).
 
+## Installer l'app Android sur ton téléphone (gratuit, sans Play Store)
+
+1. Crée un compte gratuit sur <https://expo.dev> (le même que pour Expo Go) et connecte-toi : `npx expo login`.
+2. Lance la compilation dans le cloud d'Expo (gratuit dans la limite du plan gratuit) :
+   ```powershell
+   npx eas-cli@latest build --platform android --profile preview
+   ```
+   La première fois, accepte de créer le projet EAS et de générer la clé de signature Android (laisse EAS la gérer).
+3. À la fin (10 à 20 min), la commande affiche un lien et un QR code : ouvre-le sur le téléphone Android,
+   télécharge l'APK et installe-le (Android demandera d'autoriser l'installation depuis le navigateur).
+4. Pour des testeurs : envoie-leur le même lien. Google limite progressivement l'installation d'apps de développeurs
+   non vérifiés ; le compte gratuit « limited distribution » de Google permet jusqu'à 20 appareils.
+
+Identifiant de l'app : `com.chorkbambi.calincr` (Android et iOS). Il ne pourra plus changer après la première
+publication sur un store.
+
+L'iPhone nécessite un compte Apple Developer payant (99 $/an) pour installer une vraie app ; en attendant, utilise Expo Go.
+
 ## Écrans (l'app est en anglais)
 
-1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, conseil du jour, choix de l'exercice
+1. **Fight** — zone, monstre ou boss avec sa barre de PV, or, dégâts par coup, **quête du jour** (un exercice + un
+   objectif de reps basé sur ta dernière séance, bonus d'XP et d'or, série de jours), choix de l'exercice
    (bouton « How to » pour l'explication), comptage des répétitions par la caméra ou à la main.
 2. **Hero** — épée, silhouette avec chaque muscle coloré selon son niveau (toucher un muscle affiche les exercices
    recommandés), niveaux / XP / état de repos, boss vaincus.
@@ -91,9 +110,8 @@ npx tsc --noEmit    # vérification TypeScript
 
 - La caméra frontale filme pendant que tu fais l'exercice ; la détection de posture (Google MediaPipe) tourne
   **sur le téléphone**. La vidéo n'est jamais enregistrée ni envoyée : seules les répétitions comptées sont gardées.
-- **Internet requis au lancement du mode caméra** : l'app télécharge le moteur de détection de posture de Google
-  (MediaPipe, environ 18 Mo) pour que l'analyse tourne sur le téléphone. C'est un téléchargement uniquement :
-  rien n'est envoyé. Le téléphone peut en garder une copie pour démarrer plus vite ensuite.
+- **Fonctionne hors ligne** : le moteur de détection de posture (Google MediaPipe, environ 18 Mo) est intégré à
+  l'app. Aucun téléchargement, aucune connexion internet.
 - Si la caméra rate des répétitions, les boutons « +1 rep » / « +5 reps » (ou « +5 s » pour les gainages) permettent
   de corriger à la main. Comme en mode manuel, « Undo » n'annule rien.
 - Le bouton « How to » de chaque exercice montre une petite animation et les étapes.

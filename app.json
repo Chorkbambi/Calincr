@@ -1,13 +1,15 @@
 {
   "expo": {
-    "name": "Cali-Incr",
-    "slug": "cali-incr",
+    "name": "Calincr",
+    "slug": "calincr",
     "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.chorkbambi.calincr",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +18,15 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.chorkbambi.calincr",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,13 +48,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Cali-Incr uses the camera to count your reps. The video is analysed on your phone and never recorded or sent.",
+          "cameraPermission": "Calincr uses the camera to count your reps. The video is analysed on your phone and never recorded or sent.",
           "microphonePermission": false,
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-asset"
     ],
-    "scheme": "caliincr",
+    "scheme": "calincr",
     "backgroundColor": "#1b1510"
   }
 }

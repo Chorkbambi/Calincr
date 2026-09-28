@@ -4,22 +4,20 @@
  *
  * Privacy / security:
  * - The video is never recorded, saved or sent: it only lives in the <video> element.
- * - The Content-Security-Policy only lets the page DOWNLOAD the pinned library and model
- *   (cdn.jsdelivr.net, storage.googleapis.com). Images can't be sent anywhere
- *   (no img/form/frame/navigation targets), and the app blocks any navigation.
- * - Versions are pinned so the code can't change under us.
+ * - MediaPipe (code, WebAssembly engine and model) is bundled with the app and handed to the page
+ *   by the app itself (see mediapipeAssets.ts). The page never uses the internet.
+ * - The Content-Security-Policy allows no network destination at all (only local blob: URLs),
+ *   and the app blocks any navigation.
  */
-export const MEDIAPIPE_VERSION = '1.0.1';
-export const POSE_MODEL_URL =
-  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
 export const CAMERA_PAGE_BASE_URL = 'https://cali-incr.local/';
 
-const CDN = `https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@${MEDIAPIPE_VERSION}`;
+/** Base64 characters per injected chunk (multiple of 4 so each chunk decodes on its own). */
+export const ASSET_CHUNK_SIZE = 1 << 20;
 
 const CSP = [
   "default-src 'none'",
-  "script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' https://cdn.jsdelivr.net",
-  'connect-src https://cdn.jsdelivr.net https://storage.googleapis.com',
+  "script-src 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob:",
+  'connect-src blob: data:',
   'img-src data: blob:',
   'media-src blob: mediastream:',
   "style-src 'unsafe-inline'",
@@ -105,7 +103,35 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
+// Bundled MediaPipe files, sent by the app in base64 chunks (window.__mpChunk / window.__mpDone).
+const chunks = {};
+let assetsReady;
+const assetsPromise = new Promise((resolve) => { assetsReady = resolve; });
+window.__mpChunk = (name, index, count, data) => {
+  (chunks[name] = chunks[name] || new Array(count))[index] = data;
+};
+window.__mpDone = () => assetsReady();
+function bytes(name) {
+  const parts = (chunks[name] || []).map((b64) => {
+    const bin = atob(b64);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  });
+  delete chunks[name];
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const all = new Uint8Array(total);
+  let offset = 0;
+  for (const p of parts) { all.set(p, offset); offset += p.length; }
+  return all;
+}
+const blobUrl = (data, type) => URL.createObjectURL(new Blob([data], { type }));
+
 async function start() {
+  if (!(await supportsSimd())) {
+    send({ type: 'error', code: 'unsupported' });
+    return;
+  }
   try {
     stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
   } catch (e) {
@@ -114,10 +140,16 @@ async function start() {
   }
   video.srcObject = stream;
   try {
-    const { FilesetResolver, PoseLandmarker } = await import('${CDN}/vision_bundle.mjs');
-    const fileset = await FilesetResolver.forVisionTasks('${CDN}/wasm');
+    send({ type: 'needAssets' });
+    await assetsPromise;
+    const { PoseLandmarker } = await import(blobUrl(bytes('bundle'), 'text/javascript'));
+    const fileset = {
+      wasmLoaderPath: blobUrl(bytes('loader'), 'text/javascript'),
+      wasmBinaryPath: blobUrl(bytes('wasm'), 'application/wasm'),
+    };
+    const model = bytes('model');
     const options = (delegate) => ({
-      baseOptions: { modelAssetPath: '${POSE_MODEL_URL}', delegate },
+      baseOptions: { modelAssetBuffer: model, delegate },
       runningMode: 'VIDEO',
       numPoses: 1,
     });
@@ -132,6 +164,15 @@ async function start() {
   }
   send({ type: 'ready' });
   requestAnimationFrame(loop);
+}
+
+// Tiny WebAssembly module using a SIMD instruction: validates only where SIMD is supported.
+async function supportsSimd() {
+  try {
+    return WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,0,0,1,5,1,96,0,1,123,3,2,1,0,10,10,1,8,0,65,0,253,15,253,98,11]));
+  } catch (e) {
+    return false;
+  }
 }
 
 start();

@@ -43,27 +43,30 @@ export class CameraRepSource extends BaseRepSource {
     };
   }
 
-  /** Called with the raw string posted by the camera page. */
-  handleMessage(data: unknown): void {
+  /** Called with the raw string posted by the camera page. Returns the validated message (null if rejected). */
+  handleMessage(data: unknown): BridgeMessage | null {
     const msg = parseBridgeMessage(data);
-    if (!msg) return;
+    if (!msg) return null;
     switch (msg.type) {
+      case 'needAssets':
+        break;
       case 'ready':
         this.setState({ stage: 'running', body: this.counter.status(), missing: [] });
-        return;
+        break;
       case 'error':
         this.setState({ stage: 'error', code: msg.code });
-        return;
+        break;
       case 'nopose':
         this.setState({ stage: 'running', body: { tracking: false, phase: 'waiting', value: null }, missing: [] });
-        return;
+        break;
       case 'pose':
         for (const event of this.counter.push(msg.frame)) {
           this.emit(event.type === 'reps' ? { type: 'reps', count: event.count, burst: false } : event);
         }
         this.setState({ stage: 'running', body: this.counter.status(), missing: missingBodyParts(msg.frame, this.exerciseId) });
-        return;
+        break;
     }
+    return msg;
   }
 
   /** Manual correction when the camera missed some reps (or seconds of a hold). */
