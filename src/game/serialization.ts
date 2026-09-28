@@ -1,4 +1,6 @@
-import { MUSCLE_IDS, STARTING_WEAPON, type WeaponId } from './config';
+import { MUSCLE_IDS, STARTING_WEAPON, STREAK_FREEZE, type CosmeticId, type ExerciseId, type GearId, type WeaponId } from './config';
+import { getCosmetic, getGear, isCosmeticId, isGearId } from './styles';
+import { isExerciseId } from './exercises';
 import { createEnemy, enemyMaxHp } from './enemy';
 import { createInitialState, EMPTY_LIFETIME, type GameState } from './engine';
 import { isWeaponId } from './shop';
@@ -70,11 +72,61 @@ export function restoreState(raw: unknown): GameState {
       typeof life.lastActiveDay === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(life.lastActiveDay)
         ? life.lastActiveDay
         : EMPTY_LIFETIME.lastActiveDay,
+    records: int(life.records, 0, 0),
+    weeklyBosses: int(life.weeklyBosses, 0, 0),
   };
 
   const known = new Set(ACHIEVEMENTS.map((a) => a.id));
   state.achievements = Array.isArray(raw.achievements)
     ? [...new Set(raw.achievements.filter((a): a is string => typeof a === 'string' && known.has(a)))]
     : [];
+
+  state.ownedGear = Array.isArray(raw.ownedGear)
+    ? [...new Set(raw.ownedGear.filter((g): g is GearId => typeof g === 'string' && isGearId(g)))]
+    : [];
+  const equippedGear = isObject(raw.equippedGear) ? raw.equippedGear : {};
+  for (const slot of ['armor', 'ring'] as const) {
+    const id = equippedGear[slot];
+    if (typeof id === 'string' && isGearId(id) && state.ownedGear.includes(id) && getGear(id).slot === slot) {
+      state.equippedGear[slot] = id;
+    }
+  }
+
+  state.ownedCosmetics = Array.isArray(raw.ownedCosmetics)
+    ? [...new Set(raw.ownedCosmetics.filter((c): c is CosmeticId => typeof c === 'string' && isCosmeticId(c)))]
+    : [];
+  const equippedCosmetics = isObject(raw.equippedCosmetics) ? raw.equippedCosmetics : {};
+  for (const slot of ['glow', 'numbers'] as const) {
+    const id = equippedCosmetics[slot];
+    if (typeof id === 'string' && isCosmeticId(id) && state.ownedCosmetics.includes(id) && getCosmetic(id).slot === slot) {
+      state.equippedCosmetics[slot] = id;
+    }
+  }
+
+  state.streakFreezes = Math.min(STREAK_FREEZE.maxOwned, int(raw.streakFreezes, 0, 0));
+
+  if (isObject(raw.records)) {
+    for (const [id, value] of Object.entries(raw.records)) {
+      if (isExerciseId(id) && typeof value === 'number' && Number.isFinite(value) && value > 0) {
+        state.records[id as ExerciseId] = Math.floor(value);
+      }
+    }
+  }
+  const run = raw.recordRun;
+  if (isObject(run) && typeof run.setId === 'string' && typeof run.exerciseId === 'string' && isExerciseId(run.exerciseId)) {
+    state.recordRun = {
+      setId: run.setId.slice(0, 64),
+      exerciseId: run.exerciseId,
+      best: int(run.best, 0, 0),
+      rewarded: run.rewarded === true,
+    };
+  }
+
+  const boss = raw.weeklyBoss;
+  if (isObject(boss) && typeof boss.weekStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(boss.weekStart)) {
+    const maxHp = int(boss.maxHp, 1, 1);
+    const hp = Math.min(maxHp, int(boss.hp, maxHp, 0));
+    state.weeklyBoss = { weekStart: boss.weekStart, maxHp, hp, defeated: hp === 0 };
+  }
   return state;
 }

@@ -78,7 +78,7 @@ describe('enemies and levels', () => {
 describe('applyWork', () => {
   it('turns each rep into one hit, then grants XP', () => {
     const { state, outcome } = applyWork(createInitialState(), 'pushup', { kind: 'reps', count: 1 }, NOW);
-    expect(outcome.hits).toEqual([{ damage: 10, combo: 1, enemy: { level: 1, stage: 0, hp: 10, maxHp: 20 }, defeated: false }]);
+    expect(outcome.hits).toEqual([{ damage: 10, combo: 1, weak: false, enemy: { level: 1, stage: 0, hp: 10, maxHp: 20 }, defeated: false }]);
     expect(state.enemy.hp).toBe(10);
     expect(outcome.xpByMuscle).toEqual({ chest: 5, triceps: 3, shoulders: 2 });
     expect(state.muscles.chest.xp).toBe(5);
@@ -111,7 +111,7 @@ describe('applyWork', () => {
 
   it('uses levels gained during the set for later hits', () => {
     // Calf raises: 4 XP per rep to calves, level 2 reached at 50 XP = 13 reps.
-    let state: GameState = { ...createInitialState(), enemy: { ...createEnemy(50, 0) } };
+    let state: GameState = { ...createInitialState(), enemy: { ...createEnemy(51, 0) } }; // weak to Pull: calf raises get no weakness bonus
     const damages: number[] = [];
     let levelUps: unknown[] = [];
     // One rep every 20 s: too slow for combos, so only levels change the damage.

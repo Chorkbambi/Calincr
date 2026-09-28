@@ -1,5 +1,5 @@
 import { CALENDAR, COMBAT, type ExerciseId } from './config';
-import { daysInMonth, monthKey, startOfWeek, weekdayMondayFirst, type DayKey } from './dates';
+import { addDays, daysInMonth, monthKey, startOfWeek, weekdayMondayFirst, type DayKey } from './dates';
 import { getExercise } from './exercises';
 import type { SetRecord } from './sets';
 
@@ -76,4 +76,31 @@ export function monthGrid(year: number, month: number): (DayKey | null)[][] {
   const weeks: (DayKey | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
+}
+
+export interface WeekProgress {
+  weekStart: DayKey;
+  /** Total reps (or seconds) of the exercise that week. */
+  volume: number;
+  /** Best single set that week (0 = not trained). */
+  best: number;
+}
+
+/** The last `weeks` weeks (oldest first, empty weeks included) of one exercise, from its per-day totals. */
+export function weeklyProgress(
+  days: readonly { day: DayKey; total: number; best: number }[],
+  today: DayKey,
+  weeks: number,
+): WeekProgress[] {
+  const last = startOfWeek(today);
+  const result: WeekProgress[] = [];
+  for (let i = weeks - 1; i >= 0; i--) result.push({ weekStart: addDays(last, -7 * i), volume: 0, best: 0 });
+  const byWeek = new Map(result.map((w) => [w.weekStart, w]));
+  for (const d of days) {
+    const week = byWeek.get(startOfWeek(d.day));
+    if (!week) continue;
+    week.volume += d.total;
+    week.best = Math.max(week.best, d.best);
+  }
+  return result;
 }

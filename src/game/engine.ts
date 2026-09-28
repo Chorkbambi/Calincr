@@ -4,16 +4,23 @@ import {
   MUSCLE_IDS,
   PROGRESSION,
   STARTING_WEAPON,
+  WEAKNESS,
+  WEEKLY_BOSS,
+  type CosmeticId,
+  type CosmeticSlot,
   type ExerciseId,
+  type ExerciseStyle,
+  type GearId,
   type MuscleId,
   type WeaponId,
 } from './config';
-import { toDayKey, type DayKey } from './dates';
-import { createEnemy, goldReward, isBossStage, nextEnemy, type EnemyState } from './enemy';
+import { startOfWeek, toDayKey, type DayKey } from './dates';
+import { createEnemy, enemyMaxHp, goldReward, isBossStage, nextEnemy, type EnemyState } from './enemy';
 import { getExercise, muscleWeights } from './exercises';
 import { addXp } from './progression';
 import { INITIAL_RECOVERY, recoveryForSession, type RecoveryState } from './recovery';
 import { getWeapon } from './shop';
+import { enemyWeakness, exerciseStyle, gearEffects, type EquippedGear } from './styles';
 
 export interface MuscleState extends RecoveryState {
   level: number;
@@ -34,6 +41,25 @@ export interface GameState {
   lifetime: LifetimeStats;
   /** Unlocked achievement ids. */
   achievements: string[];
+  ownedGear: GearId[];
+  equippedGear: EquippedGear;
+  ownedCosmetics: CosmeticId[];
+  equippedCosmetics: Record<CosmeticSlot, CosmeticId | null>;
+  /** Protect the daily-quest streak for one missed day each. */
+  streakFreezes: number;
+  /** Best set ever per exercise (reps, or seconds for holds). */
+  records: Partial<Record<ExerciseId, number>>;
+  /** Record in progress: the best set before the current set started (so a record is paid once per set). */
+  recordRun: { setId: string; exerciseId: ExerciseId; best: number; rewarded: boolean } | null;
+  weeklyBoss: WeeklyBossState | null;
+}
+
+export interface WeeklyBossState {
+  /** Monday of the boss's week. */
+  weekStart: DayKey;
+  hp: number;
+  maxHp: number;
+  defeated: boolean;
 }
 
 export interface LifetimeStats {
@@ -45,6 +71,8 @@ export interface LifetimeStats {
   bestQuestStreak: number;
   activeDays: number;
   lastActiveDay: DayKey | null;
+  records: number;
+  weeklyBosses: number;
 }
 
 export const EMPTY_LIFETIME: LifetimeStats = {
@@ -56,6 +84,8 @@ export const EMPTY_LIFETIME: LifetimeStats = {
   bestQuestStreak: 0,
   activeDays: 0,
   lastActiveDay: null,
+  records: 0,
+  weeklyBosses: 0,
 };
 
 export function createInitialState(): GameState {
@@ -73,12 +103,20 @@ export function createInitialState(): GameState {
     combo: { count: 0, lastHitAt: 0 },
     lifetime: { ...EMPTY_LIFETIME },
     achievements: [],
+    ownedGear: [],
+    equippedGear: { armor: null, ring: null },
+    ownedCosmetics: [],
+    equippedCosmetics: { glow: null, numbers: null },
+    streakFreezes: 0,
+    records: {},
+    recordRun: null,
+    weeklyBoss: null,
   };
 }
 
-/** Damage bonus for a combo of `count` chained hits (0.1 = +10%). */
-export function comboBonus(count: number): number {
-  return Math.min(COMBO.maxBonus, Math.floor(count / COMBO.hitsPerStep) * COMBO.bonusPerStep);
+/** Damage bonus for a combo of `count` chained hits (0.1 = +10%). `extraCap` comes from a ring. */
+export function comboBonus(count: number, extraCap = 0): number {
+  return Math.min(COMBO.maxBonus + extraCap, Math.floor(count / COMBO.hitsPerStep) * COMBO.bonusPerStep);
 }
 
 export function totalLevels(state: GameState): number {
@@ -97,6 +135,8 @@ export interface Hit {
   damage: number;
   /** Chained hits so far, this one included. */
   combo: number;
+  /** The exercise's style is the enemy's weakness. */
+  weak: boolean;
   enemy: EnemyState;
   defeated: boolean;
 }
@@ -121,23 +161,59 @@ export interface WorkOutcome {
   levelUps: { muscle: MuscleId; level: number }[];
   kills: Kill[];
   goldEarned: number;
+  /** Gold paid when this work defeated the weekly boss. */
+  weeklyBossGold: number | null;
 }
 
-function strike(state: GameState, outcome: WorkOutcome, now: Date): void {
+/** HP of a new weekly boss for this player (scales with their damage). */
+export function weeklyBossHp(state: GameState): number {
+  return Math.max(WEEKLY_BOSS.minHp, hitDamage(state) * WEEKLY_BOSS.hitsToDefeat);
+}
+
+export function weeklyBossGold(state: GameState): number {
+  return Math.max(WEEKLY_BOSS.minGold, Math.round(enemyMaxHp(state.enemy.level, 0) * WEEKLY_BOSS.goldPerMonsterHp));
+}
+
+/** This week's boss: the stored one, or a fresh one when a new week started. */
+export function currentWeeklyBoss(state: GameState, today: DayKey): WeeklyBossState {
+  const weekStart = startOfWeek(today);
+  if (state.weeklyBoss && state.weeklyBoss.weekStart === weekStart) return state.weeklyBoss;
+  const maxHp = weeklyBossHp(state);
+  return { weekStart, hp: maxHp, maxHp, defeated: false };
+}
+
+function strike(state: GameState, outcome: WorkOutcome, now: Date, style: ExerciseStyle): void {
+  const gear = gearEffects(state.equippedGear);
   const t = now.getTime();
-  const chained = t - state.combo.lastHitAt <= COMBO.windowMs && t >= state.combo.lastHitAt;
+  const chained = t - state.combo.lastHitAt <= COMBO.windowMs + gear.comboWindowMs && t >= state.combo.lastHitAt;
   const combo = chained ? state.combo.count + 1 : 1;
   state.combo = { count: combo, lastHitAt: t };
-  const damage = Math.round(hitDamage(state) * (1 + comboBonus(combo)));
   const enemy = state.enemy;
+  const weak = enemyWeakness(enemy.level, enemy.stage) === style;
+  const weakBonus = weak ? WEAKNESS.damageBonus + gear.weaknessBonus : 0;
+  const damage = Math.round(hitDamage(state) * (1 + comboBonus(combo, gear.comboMaxBonus)) * (1 + weakBonus));
+
+  const boss = state.weeklyBoss;
+  if (boss && !boss.defeated) {
+    const bossHp = Math.max(0, boss.hp - damage);
+    state.weeklyBoss = { ...boss, hp: bossHp, defeated: bossHp === 0 };
+    if (bossHp === 0) {
+      const reward = weeklyBossGold(state);
+      state.gold += reward;
+      outcome.goldEarned += reward;
+      outcome.weeklyBossGold = reward;
+      state.lifetime.weeklyBosses += 1;
+    }
+  }
+
   const hp = Math.max(0, enemy.hp - damage);
   const defeated = hp === 0;
-  outcome.hits.push({ damage, combo, enemy: { ...enemy, hp }, defeated });
+  outcome.hits.push({ damage, combo, weak, enemy: { ...enemy, hp }, defeated });
   if (!defeated) {
     state.enemy = { ...enemy, hp };
     return;
   }
-  const gold = goldReward(enemy);
+  const gold = Math.round(goldReward(enemy) * (1 + gear.goldBonus));
   outcome.kills.push({
     level: enemy.level,
     stage: enemy.stage,
@@ -187,8 +263,11 @@ export function applyWork(
     levelUps: [],
     kills: [],
     goldEarned: 0,
+    weeklyBossGold: null,
   };
   if (units === 0) return { state, outcome };
+  state.weeklyBoss = currentWeeklyBoss(state, day);
+  const style = exerciseStyle(exercise);
 
   if (exercise.unit === 'seconds') state.lifetime.holdSeconds += units;
   else state.lifetime.reps += units;
@@ -210,10 +289,10 @@ export function applyWork(
       state.pendingHitSeconds += 1;
       if (state.pendingHitSeconds >= COMBAT.secondsPerHit) {
         state.pendingHitSeconds -= COMBAT.secondsPerHit;
-        strike(state, outcome, now);
+        strike(state, outcome, now, style);
       }
     } else {
-      strike(state, outcome, now);
+      strike(state, outcome, now, style);
     }
     for (const [muscle, weight] of weights) {
       const muscleState = state.muscles[muscle];

@@ -21,6 +21,8 @@ export interface DailyQuest {
   rewardGold: number;
   /** Quests completed on consecutive days before today. */
   streak: number;
+  /** Streak freezes spent to keep the streak when this quest was created. */
+  freezesUsed: number;
   /** Rest bonus of the exercise today (1.2 = +20% XP). */
   effectiveMultiplier: number;
   /** Last time this exercise was done, for context. */
@@ -84,11 +86,19 @@ export function createDailyQuest(
   const { target, lastDone } = questTarget(best.exerciseId, history, today, best.effectiveMultiplier);
   const { sets, perSet } = splitIntoSets(target, exercise.unit);
   let streak = 0;
+  let freezesUsed = 0;
   if (previous && previous.day < today) {
-    const gap = daysBetween(previous.day, today);
-    if (gap === 1 && previous.completed) streak = previous.streak + 1;
+    const kept = previous.streak + (previous.completed ? 1 : 0);
+    const missed = daysBetween(previous.day, today) - (previous.completed ? 1 : 0);
+    if (missed === 0) {
+      streak = kept;
+    } else if (kept > 0 && missed <= state.streakFreezes) {
+      streak = kept;
+      freezesUsed = missed;
+    }
   } else if (previous && previous.day === today) {
     streak = previous.streak;
+    freezesUsed = previous.freezesUsed;
   }
   return {
     day: today,
@@ -101,9 +111,16 @@ export function createDailyQuest(
     rewardXp: Math.round(target * exercise.baseXp * QUEST.xpBonusRatio),
     rewardGold: Math.max(QUEST.minGold, Math.round(enemyMaxHp(state.enemy.level, 0) * QUEST.goldPerMonsterHp)),
     streak,
+    freezesUsed,
     effectiveMultiplier: best.effectiveMultiplier,
     lastDone,
   };
+}
+
+/** Spends the freezes a new day's quest used (call once, when the quest replaces one from an earlier day). */
+export function spendStreakFreezes(state: GameState, quest: DailyQuest): GameState {
+  if (quest.freezesUsed <= 0) return state;
+  return { ...state, streakFreezes: Math.max(0, state.streakFreezes - quest.freezesUsed) };
 }
 
 /** True when the stored quest should be replaced (new day, or its exercise left the difficulty mode untouched). */
@@ -182,6 +199,7 @@ export function restoreQuest(raw: unknown): DailyQuest | null {
     rewardXp,
     rewardGold,
     streak,
+    freezesUsed: int(q.freezesUsed) ?? 0,
     effectiveMultiplier: effective,
     lastDone,
   };

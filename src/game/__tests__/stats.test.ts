@@ -1,7 +1,7 @@
 import { addDays, daysBetween, startOfWeek, toDayKey } from '../dates';
 import { applyWork, createInitialState } from '../engine';
 import { recordWork, type SetRecord } from '../sets';
-import { intensityLevel, monthGrid, summarizeByDay, totalsByExercise, totalsByMonth, totalsByWeek } from '../stats';
+import { intensityLevel, monthGrid, summarizeByDay, totalsByExercise, totalsByMonth, totalsByWeek, weeklyProgress } from '../stats';
 
 const set = (day: string, exerciseId: SetRecord['exerciseId'], amount: number, hour = 10): SetRecord => ({
   id: `${day}-${exerciseId}-${hour}`,
@@ -49,7 +49,7 @@ describe('recordWork', () => {
     let current = recordWork(null, a.outcome, now, newId);
     const b = applyWork(state, 'pushup', { kind: 'reps', count: 2 }, now);
     current = recordWork(current, b.outcome, now, newId);
-    expect(current).toMatchObject({ id: 'set-1', amount: 5, hits: 5, damage: 51 }); // 5th hit gets the +5% combo bonus
+    expect(current).toMatchObject({ id: 'set-1', amount: 5, hits: 5, damage: 61 }); // 10 + 10, then the 2nd monster is weak to Push: 15 + 15 + 16 (5th hit: +5% combo)
     expect(current.xpByMuscle.chest).toBeCloseTo(25);
     expect(current.multiplierByMuscle).toEqual({ chest: 1, triceps: 1, shoulders: 1 });
 
@@ -104,5 +104,22 @@ describe('stats', () => {
     expect(grid[0]).toEqual([null, '2026-09-01', '2026-09-02', '2026-09-03', '2026-09-04', '2026-09-05', '2026-09-06']);
     expect(grid.flat().filter(Boolean)).toHaveLength(30);
     expect(grid.every((w) => w.length === 7)).toBe(true);
+  });
+});
+
+describe('weeklyProgress', () => {
+  it('groups days by week, oldest first, with empty weeks', () => {
+    const days = [
+      { day: '2026-02-24', total: 30, best: 12 },
+      { day: '2026-03-02', total: 20, best: 10 },
+      { day: '2026-03-04', total: 25, best: 14 },
+      { day: '2026-03-10', total: 8, best: 8 },
+    ];
+    expect(weeklyProgress(days, '2026-03-10', 3)).toEqual([
+      { weekStart: '2026-02-23', volume: 30, best: 12 },
+      { weekStart: '2026-03-02', volume: 45, best: 14 },
+      { weekStart: '2026-03-09', volume: 8, best: 8 },
+    ]);
+    expect(weeklyProgress(days, '2026-03-10', 1)).toEqual([{ weekStart: '2026-03-09', volume: 8, best: 8 }]);
   });
 });

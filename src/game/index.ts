@@ -17,3 +17,5 @@ export * from './quest';
 export * from './achievements';
 export * from './recap';
 export * from './backup';
+export * from './records';
+export * from './styles';

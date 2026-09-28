@@ -36,6 +36,9 @@ export const ACHIEVEMENTS: readonly AchievementDefinition[] = [
   { id: 'balanced_5', name: 'Balanced Warrior', description: 'Get every muscle to level 5.', tier: 2, progress: count(5, minMuscleLevel) },
   { id: 'balanced_10', name: 'Perfect Balance', description: 'Get every muscle to level 10.', tier: 3, progress: count(10, minMuscleLevel) },
   { id: 'armorer', name: 'Armorer', description: 'Own 3 swords.', tier: 1, progress: count(3, (s) => s.ownedWeapons.length) },
+  { id: 'record_breaker', name: 'Record Breaker', description: 'Beat one of your personal records.', tier: 1, progress: count(1, (s) => s.lifetime.records) },
+  { id: 'weekly_champion', name: 'Weekly Champion', description: 'Defeat a weekly boss.', tier: 2, progress: count(1, (s) => s.lifetime.weeklyBosses) },
+  { id: 'well_equipped', name: 'Well Equipped', description: 'Wear an armor and a ring.', tier: 1, progress: count(2, (s) => (s.equippedGear.armor ? 1 : 0) + (s.equippedGear.ring ? 1 : 0)) },
   { id: 'arsenal', name: 'Legendary Arsenal', description: 'Own every sword.', tier: 3, progress: count(WEAPONS.length, (s) => s.ownedWeapons.length) },
 ];
 

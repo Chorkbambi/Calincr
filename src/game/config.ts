@@ -224,3 +224,89 @@ export const CALIBRATION = {
   /** Thresholds sit this far inside the player's measured range (0.25 = a quarter from each end). */
   margin: 0.25,
 } as const;
+
+/** Exercise styles, used by monster weaknesses. An exercise's style = the group holding most of its XP weight. */
+export const STYLE_MUSCLES = {
+  push: ['chest', 'triceps', 'shoulders'],
+  pull: ['back', 'biceps'],
+  legs: ['quads', 'glutes', 'hamstrings', 'calves'],
+  core: ['abs'],
+} as const satisfies Record<string, readonly MuscleId[]>;
+export type ExerciseStyle = keyof typeof STYLE_MUSCLES;
+export const EXERCISE_STYLES = Object.keys(STYLE_MUSCLES) as ExerciseStyle[];
+
+/** Each enemy is weak to one style: hits with an exercise of that style deal + damageBonus. */
+export const WEAKNESS = {
+  damageBonus: 0.5,
+} as const;
+
+/**
+ * Personal record: beating your best set of an exercise (not the first time) pays
+ * max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)).
+ */
+export const RECORDS = {
+  goldPerMonsterHp: 1,
+  minGold: 10,
+} as const;
+
+/** Streak freeze: protects the daily-quest streak for one missed day. Price scales with the enemy level. */
+export const STREAK_FREEZE = {
+  maxOwned: 2,
+  goldPerMonsterHp: 3,
+  minPrice: 50,
+} as const;
+
+/**
+ * Weekly boss: one huge health bar per week (Monday to Sunday), hit by every strike.
+ * HP = max(minHp, hit damage at the start of the week × hitsToDefeat).
+ * Reward = max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)).
+ */
+export const WEEKLY_BOSS = {
+  hitsToDefeat: 300,
+  minHp: 300,
+  goldPerMonsterHp: 10,
+  minGold: 100,
+} as const;
+
+/** Armour (more gold) and rings (combo / weakness). One of each can be worn. */
+export type GearSlot = 'armor' | 'ring';
+export interface GearConfig {
+  id: string;
+  slot: GearSlot;
+  name: string;
+  price: number;
+  description: string;
+  /** Extra gold from defeated enemies (0.25 = +25%). */
+  goldBonus?: number;
+  /** Extra time allowed between two chained hits. */
+  comboWindowMs?: number;
+  /** Raises the combo damage cap. */
+  comboMaxBonus?: number;
+  /** Extra damage on a weakness, added to WEAKNESS.damageBonus. */
+  weaknessBonus?: number;
+}
+export const GEAR = [
+  { id: 'leather_armor', slot: 'armor', name: 'Leather Armor', price: 300, description: '+10% gold from enemies', goldBonus: 0.1 },
+  { id: 'chainmail', slot: 'armor', name: 'Chainmail', price: 5_000, description: '+25% gold from enemies', goldBonus: 0.25 },
+  { id: 'plate_armor', slot: 'armor', name: 'Plate Armor', price: 80_000, description: '+50% gold from enemies', goldBonus: 0.5 },
+  { id: 'dragon_scale', slot: 'armor', name: 'Dragon Scale Mail', price: 1_500_000, description: '+100% gold from enemies', goldBonus: 1 },
+  { id: 'ring_of_haste', slot: 'ring', name: 'Ring of Haste', price: 800, description: 'Combo lasts 5 s longer between hits', comboWindowMs: 5_000 },
+  { id: 'ring_of_fury', slot: 'ring', name: 'Ring of Fury', price: 12_000, description: 'Combo bonus can reach +75%', comboMaxBonus: 0.25 },
+  { id: 'hunters_ring', slot: 'ring', name: "Hunter's Ring", price: 200_000, description: 'Weakness hits deal +100% instead of +50%', weaknessBonus: 0.5 },
+] as const satisfies readonly GearConfig[];
+export type GearId = (typeof GEAR)[number]['id'];
+
+/** Purely visual items bought with gold: the glow around the sword and the colour of damage numbers. */
+export type CosmeticSlot = 'glow' | 'numbers';
+export const COSMETICS = [
+  { id: 'glow_ember', slot: 'glow', name: 'Ember Glow', color: '#ff8a3a', price: 250 },
+  { id: 'glow_frost', slot: 'glow', name: 'Frost Glow', color: '#7fd4ff', price: 250 },
+  { id: 'glow_venom', slot: 'glow', name: 'Venom Glow', color: '#8cff6a', price: 1_000 },
+  { id: 'glow_arcane', slot: 'glow', name: 'Arcane Glow', color: '#c08cff', price: 5_000 },
+  { id: 'glow_royal', slot: 'glow', name: 'Royal Glow', color: '#ffd84a', price: 25_000 },
+  { id: 'numbers_gold', slot: 'numbers', name: 'Golden Numbers', color: '#ffd84a', price: 400 },
+  { id: 'numbers_ice', slot: 'numbers', name: 'Ice Numbers', color: '#9fe6ff', price: 400 },
+  { id: 'numbers_toxic', slot: 'numbers', name: 'Toxic Numbers', color: '#9dff5a', price: 2_000 },
+  { id: 'numbers_void', slot: 'numbers', name: 'Void Numbers', color: '#d49cff', price: 10_000 },
+] as const satisfies readonly { id: string; slot: CosmeticSlot; name: string; color: string; price: number }[];
+export type CosmeticId = (typeof COSMETICS)[number]['id'];
