@@ -29,6 +29,7 @@ import {
   type WorkInput,
   type WorkOutcome,
 } from '../game';
+import { cancelDailyReminder, scheduleDailyReminder } from '../notifications/reminders';
 import { restoreCalibrations, type Calibrations } from '../pose/calibration';
 import type { TrackerConfig } from '../pose/trackers';
 import { GameRepository } from '../storage/repository';
@@ -258,6 +259,8 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       setCalibrations(imported);
       settingsRef.current = parsed.data.settings;
       setSettings(parsed.data.settings);
+      const { reminder } = parsed.data.settings;
+      void (reminder.enabled ? scheduleDailyReminder(reminder.hour, reminder.minute) : cancelDailyReminder());
       questRef.current = parsed.data.quest;
       setQuest(parsed.data.quest);
       commitState(parsed.data.state);

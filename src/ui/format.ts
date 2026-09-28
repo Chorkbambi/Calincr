@@ -66,3 +66,17 @@ export function formatDate(iso: string): string {
   const date = new Date(iso);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
+
+/** Rest timer choice: 0 → "No timer", 90 → "1 min 30". */
+export function restTimerLabel(seconds: number): string {
+  if (seconds === 0) return 'No timer';
+  if (seconds < 60) return `${seconds} s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s === 0 ? `${m} min` : `${m} min ${s}`;
+}
+
+/** 7, 5 → "07:05". */
+export function formatClock(hour: number, minute: number): string {
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
