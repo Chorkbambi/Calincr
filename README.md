@@ -169,34 +169,11 @@ The code is public: anyone can read it and check that the app sends nothing. No 
 repository (the Android signing key is kept by EAS, not here). For the Play Store, the privacy policy URL can be
 the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Calincr/blob/main/PRIVACY.md).
 
-## Support button
-
-At the very bottom of Settings, a "Pay €1.99" button shows the message "This button does nothing, it’s just here so
-you can support me if you like the game." then opens the official App Store / Google Play payment sheet. It unlocks
-nothing in the game. The price shown comes from the store (local currency), €1.99 until it is loaded.
-
-How it works (`src/support/supportPurchase.ts`): official in-app purchase (App Store guideline 3.1.1, Google Play
-Billing) through `expo-iap`, with a **consumable** product `com.chorkbambi.calincr.support` (it can be bought again).
-The transaction is closed right away; nothing is saved. Interrupted payments are closed at the next launch.
-
-`expo-iap` is a native module that Expo Go does not include: in Expo Go the button says payment is only available in
-the store version, and the rest of the app works as before. It works in EAS builds (`preview`, `production`).
-
-To do once, before the first release with the button (menu names may change):
-- **App Store Connect**: Business (Agreements, Tax and Banking) → accept the *Paid Apps* agreement, fill in bank and
-  tax details. Then your app → In-App Purchases → create a **Consumable**, Product ID `com.chorkbambi.calincr.support`,
-  price €1.99, a display name and description (e.g. "Support the developer — unlocks nothing"), a review screenshot.
-  Submit it together with the app version. Test with a Sandbox account in a TestFlight build.
-- **Google Play Console**: set up a payments profile (merchant account). Upload a build containing the button
-  (internal testing track), then Monetize → Products → In-app / one-time products → create
-  `com.chorkbambi.calincr.support`, price €1.99, activate it. Test with a license tester account.
-- Store listings will show "In-app purchases".
-
 ## Licenses
 
 Every runtime dependency uses a permissive license (MIT, ISC, BSD, Apache-2.0, BlueOak, 0BSD, CC0, Unlicense) that
 allows commercial use. Bundled files: MediaPipe tasks-vision and the Pose Landmarker model (Apache-2.0, see
-`assets/mediapipe/NOTICE.txt`), the Cinzel font (SIL Open Font License 1.1: can be embedded in a paid app, not sold
+`assets/mediapipe/NOTICE.txt`), the Cinzel font (SIL Open Font License 1.1: can be embedded in an app, not sold
 on its own).
 
 MIT/BSD/Apache require shipping their copyright and license notices: Settings → About → **Open-source licenses**

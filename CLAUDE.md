@@ -9,8 +9,6 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
 - The app must run **entirely in Expo Go** (App Store / Play Store). No development build.
 - Install **no native library missing from Expo Go**. Always `npx expo install <package>`, never `npm install <package>` for a runtime dependency.
 - No `ios/` or `android/` folders.
-- **Single exception**: `expo-iap` (support payment, store builds only). It is loaded lazily in
-  `src/support/supportPurchase.ts` and does nothing in Expo Go; never import it anywhere else.
 - No backend, no account: local persistence only (expo-sqlite).
 - Pose detection runs in a WebView (MediaPipe Tasks JS/WASM) precisely to stay Expo Go compatible.
 
@@ -34,8 +32,6 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
   copied in `PRIVACY.md` — keep both identical. The repository is **public**: never put secrets in it
   (keys, tokens, keystore); the GitHub URL of `PRIVACY.md` serves as the public page for the stores.
 - Never add analytics, ads, third-party SDKs that send data, or logs containing pose data.
-- Support payment: official App Store / Google Play in-app purchase (consumable `com.chorkbambi.calincr.support`),
-  handled by the store; the app only closes the transaction and stores nothing.
 - Open-source notices: Settings → Open-source licenses (`src/ui/content/licenses.generated.ts`). Regenerate with
   `node scripts/generate-licenses.cjs` after any dependency change.
 - Daily reminder: **local** notification scheduled by the phone (expo-notifications, never push or tokens).
@@ -52,7 +48,7 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
 - `eas.json`: `preview` profile = directly installable Android APK (free testing), `production` = app bundle
   for Google Play. Version number (`versionCode`) managed by EAS (`appVersionSource: remote`, `autoIncrement`):
   don't put it back in `app.json`. Updates = new build installed on top (no EAS Update: the app must not use the
-  internet). Android permissions limited to the camera and store billing (microphone blocked).
+  internet). Android permissions limited to the camera (microphone blocked).
 - The database is always called `cali-incr.db` (renaming it would erase saves).
 
 ## Stack
@@ -61,7 +57,7 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
   expo-haptics, expo-camera (permission only), react-native-webview, expo-screen-orientation,
   expo-asset + expo-file-system (reading the bundled MediaPipe files), expo-sharing + expo-document-picker
-  (backup), expo-notifications (local reminder), react-native-view-shot (share cards), expo-iap (support payment). `metro.config.js` adds the
+  (backup), expo-notifications (local reminder), react-native-view-shot (share cards). `metro.config.js` adds the
   wasm/task/bin extensions.
 - Tests: Jest 29 via `jest-expo` (`__tests__/*.test.ts` files). GitHub Actions (`.github/workflows/ci.yml`)
   runs `npm ci`, `tsc --noEmit` and `npm test` on every push to main.
@@ -186,9 +182,7 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - **Weekly recap**: shown once at the first launch of a new week (if there was any training).
 - **First launch**: 3 tutorial screens then camera/manual choice and rest timer. `ONBOARDING_VERSION` (settings.ts):
   bump it to show the tutorial to everyone again.
-- **Support button** (bottom of Settings): "Pay €1.99" (store's localized price once loaded) shows "This button does
-  nothing, it’s just here so you can support me if you like the game." then pays through in-app purchase; it unlocks
-  nothing. Store setup steps in the README.
+- **Completely free**: no purchase, no donation button, no ads.
 - **Accessibility**: "Large buttons" setting; text follows the phone's font size.
 - **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 

@@ -1,10 +1,9 @@
 import Constants from 'expo-constants';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { REST_TIMER_CHOICES, type Difficulty, type InputMode } from '../game';
-import { loadSupportPrice, purchaseSupport, SUPPORT_FALLBACK_PRICE } from '../support/supportPurchase';
 import { cancelDailyReminder, scheduleDailyReminder } from '../notifications/reminders';
 import { useGame } from '../state/GameProvider';
 import { formatClock, restTimerLabel } from '../ui/format';
@@ -107,16 +106,6 @@ export default function SettingsScreen() {
   const { settings, updateSettings, resetProgress } = useGame();
   const [policyOpen, setPolicyOpen] = useState(false);
   const [licensesOpen, setLicensesOpen] = useState(false);
-  const [supportPrice, setSupportPrice] = useState(SUPPORT_FALLBACK_PRICE);
-  useEffect(() => {
-    let cancelled = false;
-    loadSupportPrice().then((price) => {
-      if (price && !cancelled) setSupportPrice(price);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const { reminder } = settings;
 
@@ -261,38 +250,11 @@ export default function SettingsScreen() {
           <Text style={styles.muted}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
           <GoldButton label="Open-source licenses" variant="stone" onPress={() => setLicensesOpen(true)} />
         </Panel>
-
-        <Panel title="Support">
-          <GoldButton label={`Pay ${supportPrice}`} onPress={() => confirmSupport(supportPrice)} />
-        </Panel>
       </ScrollView>
       <PrivacyPolicyModal visible={policyOpen} onClose={() => setPolicyOpen(false)} />
       <LicensesModal visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
     </SafeAreaView>
   );
-}
-
-const SUPPORT_MESSAGE = 'This button does nothing, it’s just here so you can support me if you like the game.';
-
-/** Voluntary tip through the App Store / Google Play: shows the message, then pays. Unlocks nothing. */
-function confirmSupport(price: string) {
-  Alert.alert(`Pay ${price}`, SUPPORT_MESSAGE, [
-    { text: 'Cancel', style: 'cancel' },
-    {
-      text: `Pay ${price}`,
-      onPress: () => {
-        purchaseSupport()
-          .then((result) => {
-            if (result === 'paid') Alert.alert('Thank you!', 'Your support means a lot. ❤️');
-            else if (result === 'pending') Alert.alert('Payment pending', 'The store will finish the payment later. Thank you!');
-            else if (result === 'unavailable')
-              Alert.alert('Not available', 'Payment is only available in the version installed from the App Store or Google Play. Nothing was charged.');
-            else if (result === 'failed') Alert.alert('Payment failed', 'Nothing was charged.');
-          })
-          .catch(() => Alert.alert('Payment failed', 'Nothing was charged.'));
-      },
-    },
-  ]);
 }
 
 const styles = StyleSheet.create({
