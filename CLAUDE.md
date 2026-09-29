@@ -141,8 +141,15 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - **Gold**: each defeated enemy gives `max(1, round(max HP × 0.25))`, ×2 for a boss. Spent in the Shop.
 - Each rep = 1 hit then XP gain (a level gained mid-set boosts the following hits).
 - Holds: 1 hit every `COMBAT.secondsPerHit` seconds (5 by default), the remainder carries over.
+- **Suggestions by muscle group** (`recommend.ts`): players usually train one group per day (push / pull / legs / core,
+  like a split), so suggestions never mix a bit of everything. The group already trained today (`todayFocus`, most XP
+  today) stays suggested all day; otherwise the least recently trained group comes first (`groupRestScore` = mean rest
+  multiplier of its muscles, a never-trained muscle counts as fully rested). Inside a group: rest bonus, then XP per rep.
+- **Exercise list order** (Fight screen, `sortForBattle`): pinned favourites, then the exercises hitting the current
+  enemy's weakness (⚡, the only per-exercise damage difference), then the suggestion order. Chips of the suggested
+  group have a green border, with a "💡 Suggested today" line above the list.
 - **Daily quest** (Fight screen, `src/game/quest.ts`): ONE exercise suggested per day (the app motivates, it doesn't
-  coach): the one whose muscles are most rested (effective multiplier = Σ weight × rest multiplier).
+  coach): the first suggestion (least recently trained group, then the most rested muscles of that group).
   Target = total of the last session of that exercise + 10% (at least +1 rep / +5 s), a starting value per tier
   if never done, × 0.8 after 10 days without, × 0.7 if the muscles are tired; split into sets (e.g. 3 × 8).
   Reward on completion: bonus XP (target × base XP × 0.5, no multiplier) + gold (1.5 × HP of the level's first
@@ -201,7 +208,7 @@ Choices made where the request was ambiguous (the simplest ones):
 8. **Clock moved back**: the already frozen multiplier is kept, no penalty.
 9. **Calendar intensity**: volume = reps + hold seconds / 5; thresholds 1 / 40 / 100 / 200.
 10. **Weeks**: Monday to Sunday.
-11. **Daily quest**: exercise chosen by rest bonus, not raw XP (otherwise the hardest exercise would always be suggested). Tie → more XP per rep.
+11. **Daily quest**: exercise chosen by group rest then rest bonus, not raw XP (otherwise the hardest exercise would always be suggested). Tie → more XP per rep; groups tied on a fresh game → push first.
 12. **Difficulty**: Advanced also shows Normal exercises (squats, push-ups…), Beginner only the simplified ones. Default: Normal.
 13. **Camera mode by default**; manual mode is a setting. Changing exercise closes the set.
 14. **Camera detection**: WebView + MediaPipe Pose Landmarker "lite" (tasks-vision 1.0.1, float16/1 model), bundled in the app (no download: avoids App Store rule 2.5.2 on downloaded code). Only the WebAssembly SIMD build is included (iOS 16.4+ / recent Android WebView); otherwise the app offers manual mode. Detection thresholds per exercise in `src/pose/trackers.ts`; some exercises (calf raises, supermans, nordic curls) are hard to detect and need testing.
