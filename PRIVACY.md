@@ -1,6 +1,6 @@
 # Calincr — Privacy policy
 
-Last updated: 2026-09-28
+Last updated: 2026-09-29
 
 ## In short
 
@@ -16,7 +16,7 @@ Last updated: 2026-09-28
 
 ## Internet
 
-- The app does not use the internet. The body-tracking engine is inside the app, so camera mode works offline and nothing can be sent.
+- The app does not use the internet. The body-tracking engine is inside the app, so camera mode works offline and nothing can be sent. Only the optional support payment talks to the App Store or Google Play, through your phone's store (see below).
 
 ## Data stored on your phone
 
@@ -36,6 +36,10 @@ Last updated: 2026-09-28
 ## Sharing pictures
 
 - “Share” on the weekly recap or an achievement creates a picture with game numbers only (reps, levels, monsters) and opens your phone's share menu. It never contains anything from the camera. Nothing is sent unless you pick an app to share it with.
+
+## Optional support payment
+
+- The optional “Pay” button in Settings is a voluntary tip that unlocks nothing. The payment is handled entirely by the App Store (Apple) or Google Play, under their own privacy policies: the app never sees your card, account or payment details. It only receives the store's confirmation, closes the transaction and saves nothing about it.
 
 ## Children
 

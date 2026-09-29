@@ -8,6 +8,7 @@ import { useEffect } from 'react';
 import { ActivityIndicator, View, type ColorValue } from 'react-native';
 
 import { GameProvider } from '../state/GameProvider';
+import { finishPendingSupportPurchases } from '../support/supportPurchase';
 import { DATABASE_NAME, migrateDatabase } from '../storage/database';
 import { TabIcon, type TabIconName } from '../ui/components/TabIcon';
 import { WeeklyRecapModal } from '../ui/components/WeeklyRecapModal';
@@ -17,6 +18,8 @@ import { colors, fonts } from '../ui/theme';
 SplashScreen.preventAutoHideAsync().catch(() => {});
 // The app is portrait; only the full-screen camera may rotate to landscape.
 ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
+// Store builds only: close a support payment interrupted last time (no-op in Expo Go).
+finishPendingSupportPurchases().catch(() => {});
 
 const Loading = (
   <View style={{ flex: 1, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' }}>

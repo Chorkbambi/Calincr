@@ -172,18 +172,37 @@ the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Calincr/blob/main/PRIVAC
 ## Support button
 
 At the very bottom of Settings, a "Pay €1.99" button shows the message "This button does nothing, it’s just here so
-you can support me if you like the game." then pays. It unlocks nothing in the game.
+you can support me if you like the game." then opens the official App Store / Google Play payment sheet. It unlocks
+nothing in the game. The price shown comes from the store (local currency), €1.99 until it is loaded.
 
-The payment itself is **not wired yet** (`src/support/supportPurchase.ts` returns `unavailable`, nothing is charged):
-- the App Store requires tips to the developer to use in-app purchase (guideline 3.1.1), and outside the United
-  States storefront a link to another payment method is not allowed (3.1.1(a));
-- Google Play requires Play Billing for payments inside the app;
-- in-app purchase needs a native module (e.g. `expo-iap`) that Expo Go does not include, so it needs a development
-  build — against rule #1 of CLAUDE.md. This decision must be made before wiring it (and the privacy policy updated).
+How it works (`src/support/supportPurchase.ts`): official in-app purchase (App Store guideline 3.1.1, Google Play
+Billing) through `expo-iap`, with a **consumable** product `com.chorkbambi.calincr.support` (it can be bought again).
+The transaction is closed right away; nothing is saved. Interrupted payments are closed at the next launch.
+
+`expo-iap` is a native module that Expo Go does not include: in Expo Go the button says payment is only available in
+the store version, and the rest of the app works as before. It works in EAS builds (`preview`, `production`).
+
+To do once, before the first release with the button (menu names may change):
+- **App Store Connect**: Business (Agreements, Tax and Banking) → accept the *Paid Apps* agreement, fill in bank and
+  tax details. Then your app → In-App Purchases → create a **Consumable**, Product ID `com.chorkbambi.calincr.support`,
+  price €1.99, a display name and description (e.g. "Support the developer — unlocks nothing"), a review screenshot.
+  Submit it together with the app version. Test with a Sandbox account in a TestFlight build.
+- **Google Play Console**: set up a payments profile (merchant account). Upload a build containing the button
+  (internal testing track), then Monetize → Products → In-app / one-time products → create
+  `com.chorkbambi.calincr.support`, price €1.99, activate it. Test with a license tester account.
+- Store listings will show "In-app purchases".
 
 ## Licenses
 
 Every runtime dependency uses a permissive license (MIT, ISC, BSD, Apache-2.0, BlueOak, 0BSD, CC0, Unlicense) that
 allows commercial use. Bundled files: MediaPipe tasks-vision and the Pose Landmarker model (Apache-2.0, see
 `assets/mediapipe/NOTICE.txt`), the Cinzel font (SIL Open Font License 1.1: can be embedded in a paid app, not sold
-on its own). MIT/BSD/Apache require keeping their copyright and license notices in distributed copies.
+on its own).
+
+MIT/BSD/Apache require shipping their copyright and license notices: Settings → About → **Open-source licenses**
+lists every package of the app's JavaScript bundle, every direct dependency and the MediaPipe files, with their
+license text. The list is generated; after adding, removing or updating a dependency run:
+
+```bash
+node scripts/generate-licenses.cjs   # rewrites src/ui/content/licenses.generated.ts
+```

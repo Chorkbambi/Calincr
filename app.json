@@ -20,7 +20,8 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.chorkbambi.calincr",
       "permissions": [
-        "android.permission.CAMERA"
+        "android.permission.CAMERA",
+        "com.android.vending.BILLING"
       ],
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO"
@@ -52,7 +53,8 @@
         }
       ],
       "expo-asset",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-iap"
     ],
     "scheme": "calincr",
     "backgroundColor": "#1b1510",
