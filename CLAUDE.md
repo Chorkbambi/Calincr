@@ -180,6 +180,9 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - **Weekly recap**: shown once at the first launch of a new week (if there was any training).
 - **First launch**: 3 tutorial screens then camera/manual choice and rest timer. `ONBOARDING_VERSION` (settings.ts):
   bump it to show the tutorial to everyone again.
+- **Support button** (bottom of Settings): "Pay €1.99" shows "This button does nothing, it’s just here so you can
+  support me if you like the game." then pays; it unlocks nothing. Payment not wired (`src/support/supportPurchase.ts`
+  returns `unavailable`): store rules require in-app purchase, which Expo Go cannot do (see README).
 - **Accessibility**: "Large buttons" setting; text follows the phone's font size.
 - **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 

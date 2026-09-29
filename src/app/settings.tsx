@@ -4,6 +4,7 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { REST_TIMER_CHOICES, type Difficulty, type InputMode } from '../game';
+import { purchaseSupport, SUPPORT_PRICE_LABEL } from '../support/supportPurchase';
 import { cancelDailyReminder, scheduleDailyReminder } from '../notifications/reminders';
 import { useGame } from '../state/GameProvider';
 import { formatClock, restTimerLabel } from '../ui/format';
@@ -247,10 +248,34 @@ export default function SettingsScreen() {
           </Text>
           <Text style={styles.muted}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
         </Panel>
+
+        <Panel title="Support">
+          <GoldButton label={`Pay ${SUPPORT_PRICE_LABEL}`} onPress={confirmSupport} />
+        </Panel>
       </ScrollView>
       <PrivacyPolicyModal visible={policyOpen} onClose={() => setPolicyOpen(false)} />
     </SafeAreaView>
   );
+}
+
+const SUPPORT_MESSAGE = 'This button does nothing, it’s just here so you can support me if you like the game.';
+
+/** Voluntary tip: shows the message, then pays. Unlocks nothing in the game. */
+function confirmSupport() {
+  Alert.alert(`Pay ${SUPPORT_PRICE_LABEL}`, SUPPORT_MESSAGE, [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: `Pay ${SUPPORT_PRICE_LABEL}`,
+      onPress: () => {
+        purchaseSupport()
+          .then((result) => {
+            if (result === 'paid') Alert.alert('Thank you!', SUPPORT_MESSAGE);
+            else if (result === 'unavailable') Alert.alert('Not available yet', 'Payments are not set up yet. Nothing was charged.');
+          })
+          .catch(() => Alert.alert('Payment failed', 'Nothing was charged.'));
+      },
+    },
+  ]);
 }
 
 const styles = StyleSheet.create({

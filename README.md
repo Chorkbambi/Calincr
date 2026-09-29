@@ -168,3 +168,22 @@ Settings → **Export backup**: creates a `calincr-backup-YYYY-MM-DD.json` file 
 The code is public: anyone can read it and check that the app sends nothing. No secrets are stored in the
 repository (the Android signing key is kept by EAS, not here). For the Play Store, the privacy policy URL can be
 the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Calincr/blob/main/PRIVACY.md).
+
+## Support button
+
+At the very bottom of Settings, a "Pay €1.99" button shows the message "This button does nothing, it’s just here so
+you can support me if you like the game." then pays. It unlocks nothing in the game.
+
+The payment itself is **not wired yet** (`src/support/supportPurchase.ts` returns `unavailable`, nothing is charged):
+- the App Store requires tips to the developer to use in-app purchase (guideline 3.1.1), and outside the United
+  States storefront a link to another payment method is not allowed (3.1.1(a));
+- Google Play requires Play Billing for payments inside the app;
+- in-app purchase needs a native module (e.g. `expo-iap`) that Expo Go does not include, so it needs a development
+  build — against rule #1 of CLAUDE.md. This decision must be made before wiring it (and the privacy policy updated).
+
+## Licenses
+
+Every runtime dependency uses a permissive license (MIT, ISC, BSD, Apache-2.0, BlueOak, 0BSD, CC0, Unlicense) that
+allows commercial use. Bundled files: MediaPipe tasks-vision and the Pose Landmarker model (Apache-2.0, see
+`assets/mediapipe/NOTICE.txt`), the Cinzel font (SIL Open Font License 1.1: can be embedded in a paid app, not sold
+on its own). MIT/BSD/Apache require keeping their copyright and license notices in distributed copies.
