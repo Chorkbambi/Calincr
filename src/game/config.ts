@@ -172,8 +172,8 @@ export const MANUAL_INPUT = {
 
 /** Daily quest: one suggested exercise per day with a rep target based on the player's history. */
 export const QUEST = {
-  /** How far back the history is read to pick the target. */
-  historyDays: 28,
+  /** How far back the history is read to pick the target (a long break must not reset the player to beginner). */
+  historyDays: 365,
   /** First time doing the exercise: target per tier (reps, or seconds for holds). */
   startTarget: {
     beginner: { reps: 12, seconds: 30 },
@@ -186,6 +186,13 @@ export const QUEST = {
   /** Not done for this many days or more: restart a bit lower (× detrainFactor). */
   detrainDays: 10,
   detrainFactor: 0.8,
+  /** Not done for this many days or more: restart lower still (× longDetrainFactor). */
+  longDetrainDays: 30,
+  longDetrainFactor: 0.6,
+  /** A set counts as a real set when it reaches this share of the day's best set (leftover 1-rep sets are ignored). */
+  realSetRatio: 0.5,
+  /** Never more sets than this, even if the player did more last time. */
+  maxSets: 6,
   /** Muscles still tired (best multiplier < 1): lighter day (× tiredFactor). */
   tiredFactor: 0.7,
   minTarget: { reps: 3, seconds: 10 },
