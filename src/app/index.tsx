@@ -1,4 +1,5 @@
 import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -22,6 +23,7 @@ import {
   STYLE_MUSCLES,
   toDayKey,
   todayFocus,
+  voiceCountPhrase,
   WEAPONS,
   zoneForLevel,
   type ExerciseId,
@@ -34,13 +36,18 @@ import { DailyQuestCard } from '../ui/components/DailyQuestCard';
 import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { GoldButton } from '../ui/components/GoldButton';
 import { HpBar } from '../ui/components/HpBar';
-import { Panel } from '../ui/components/Panel';
+import { LevelUpBanner, type LevelUpEvent } from '../ui/components/LevelUpBanner';
 import { ComboBadge } from '../ui/components/ComboBadge';
 import { RestTimer } from '../ui/components/RestTimer';
+import { VoiceToggle } from '../ui/components/VoiceToggle';
 import { WeeklyBossBar } from '../ui/components/WeeklyBossBar';
 import { formatAmount, formatCompact, formatDayShort, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
+import { say, stopSpeaking } from '../ui/voice';
+
+const KEEP_AWAKE_TAG = 'fight';
+const LEVEL_UP_BANNER_MS = 2500;
 
 const toWorkInput = (event: RepEvent): WorkInput =>
   event.type === 'reps' ? { kind: 'reps', count: event.count } : { kind: 'seconds', seconds: event.seconds };
@@ -109,6 +116,18 @@ export default function CombatScreen() {
   const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
   const [message, setMessage] = useState<string | null>(null);
+  const [levelUp, setLevelUp] = useState<LevelUpEvent | null>(null);
+  const setVoiceCount = (voiceCount: boolean) => {
+    if (!voiceCount) stopSpeaking();
+    updateSettings({ voiceCount });
+  };
+
+  // The screen stays on during the fight (phone on the floor, rest timer), never on other tabs.
+  useEffect(() => {
+    if (!focused) return undefined;
+    activateKeepAwakeAsync(KEEP_AWAKE_TAG).catch(() => {});
+    return () => void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
+  }, [focused]);
 
   /** Ends the current set and, if the player wants it, starts the rest timer. */
   const finishSet = () => {
@@ -117,7 +136,12 @@ export default function CombatScreen() {
   };
   const restTimer =
     restStartedAt !== null ? (
-      <RestTimer startedAt={restStartedAt} seconds={settings.restTimerSeconds} onDone={() => setRestStartedAt(null)} />
+      <RestTimer
+        startedAt={restStartedAt}
+        seconds={settings.restTimerSeconds}
+        onDone={() => setRestStartedAt(null)}
+        voice={settings.voiceCount}
+      />
     ) : null;
   const hudEnemy = frame.enemy ?? state.enemy;
   const style = exerciseStyle(exercise);
@@ -148,6 +172,7 @@ export default function CombatScreen() {
       <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
       {message ? <Text style={styles.message}>{message}</Text> : null}
       {restTimer}
+      <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
     </View>
   );
   const { source, controls } = useRepInput({
@@ -204,12 +229,24 @@ export default function CombatScreen() {
   // The combat screen only knows the RepSource interface, never its implementation.
   const exerciseRef = useRef(exerciseId);
   exerciseRef.current = exerciseId;
+  const voiceRef = useRef(settings.voiceCount);
+  voiceRef.current = settings.voiceCount;
+  const levelUpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () =>
       source.subscribe((event) => {
         const outcome = work(exerciseRef.current, toWorkInput(event));
         enqueue(outcome.hits, event.type === 'reps' && event.burst);
         if (outcome.hits.length > 0) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+        if (voiceRef.current) {
+          const phrase = voiceCountPhrase(getExercise(exerciseRef.current).unit, outcome.setAmount - outcome.amount, outcome.setAmount);
+          if (phrase) say(phrase);
+        }
+        if (outcome.levelUps.length > 0) {
+          setLevelUp((prev) => ({ key: (prev?.key ?? 0) + 1, levelUps: outcome.levelUps }));
+          if (levelUpTimer.current) clearTimeout(levelUpTimer.current);
+          levelUpTimer.current = setTimeout(() => setLevelUp(null), LEVEL_UP_BANNER_MS);
+        }
         const text = describe(outcome);
         if (text) {
           setMessage(text);
@@ -219,7 +256,14 @@ export default function CombatScreen() {
       }),
     [source, work, enqueue],
   );
-  useEffect(() => () => void (messageTimer.current && clearTimeout(messageTimer.current)), []);
+  useEffect(
+    () => () => {
+      if (messageTimer.current) clearTimeout(messageTimer.current);
+      if (levelUpTimer.current) clearTimeout(levelUpTimer.current);
+      stopSpeaking();
+    },
+    [],
+  );
 
   const isFavorite = settings.favorites.includes(exerciseId);
   const toggleFavorite = () =>
@@ -250,28 +294,28 @@ export default function CombatScreen() {
             </Text>
             <Text style={[styles.enemyName, boss && styles.bossName]}>{enemyName(enemy.level, enemy.stage)}</Text>
             <HpBar hp={enemy.hp} maxHp={enemy.maxHp} enemyKey={enemy.level * 1000 + enemy.stage} />
-            <Text style={styles.hp}>
-              {formatNumber(enemy.hp)} / {formatNumber(enemy.maxHp)} HP
-            </Text>
+            <View style={styles.hpRow}>
+              <Text style={styles.damageValue}>⚔ {formatNumber(hitDamage(state))} per hit</Text>
+              <Text style={styles.hp}>
+                {formatNumber(enemy.hp)} / {formatNumber(enemy.maxHp)} HP
+              </Text>
+            </View>
             {weakness(enemy.level, enemy.stage)}
           </View>
 
-          <BattleArena
-            enemy={enemy}
-            frame={frame}
-            weaponTier={Math.max(0, weaponTier)}
-            glow={COSMETICS.find((c) => c.id === state.equippedCosmetics.glow)?.color}
-            numberColor={COSMETICS.find((c) => c.id === state.equippedCosmetics.numbers)?.color}
-          />
-
-          <View style={styles.damageRow}>
-            <Text style={styles.damageLabel}>Damage per hit</Text>
-            <Text style={styles.damageValue}>{formatNumber(hitDamage(state))}</Text>
+          <View>
+            <BattleArena
+              enemy={enemy}
+              frame={frame}
+              weaponTier={Math.max(0, weaponTier)}
+              glow={COSMETICS.find((c) => c.id === state.equippedCosmetics.glow)?.color}
+              numberColor={COSMETICS.find((c) => c.id === state.equippedCosmetics.numbers)?.color}
+            />
+            <LevelUpBanner event={levelUp} damage={hitDamage(state)} />
           </View>
+
           <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
           {message ? <Text style={styles.message}>{message}</Text> : null}
-
-          <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
 
           {suggestedStyle ? (
             <Text style={styles.suggestion}>
@@ -328,29 +372,29 @@ export default function CombatScreen() {
           {restTimer}
           {controls}
 
-          <Panel title="Current set">
-            {openSet ? (
-              <>
-                <Text style={styles.setText}>
-                  {getExercise(openSet.exerciseId).name} — {formatAmount(openSet.exerciseId, openSet.amount)} ·{' '}
-                  {formatNumber(openSet.damage)} damage
-                </Text>
-                <GoldButton
-                  label="Finish set"
-                  variant="stone"
-                  onPress={finishSet}
-                  style={settings.largeButtons ? styles.largeButton : undefined}
-                />
-              </>
-            ) : (
-              <Text style={styles.muted}>
-                {exercise.unit === 'seconds'
-                  ? 'Hold the position: one sword strike every few seconds.'
-                  : 'Every rep is a sword strike.'}
+          {openSet ? (
+            <View style={styles.setBox}>
+              <Text style={styles.setText}>
+                Current set: <Text style={styles.setAmount}>{formatAmount(openSet.exerciseId, openSet.amount)}</Text> ·{' '}
+                {formatNumber(openSet.damage)} damage
               </Text>
-            )}
-          </Panel>
+              <GoldButton
+                label="Finish set"
+                variant="stone"
+                onPress={finishSet}
+                style={settings.largeButtons ? styles.largeButton : undefined}
+              />
+            </View>
+          ) : (
+            <Text style={[styles.muted, styles.center]}>
+              {exercise.unit === 'seconds'
+                ? 'Hold the position: one sword strike every few seconds.'
+                : 'Every rep is a sword strike.'}
+            </Text>
+          )}
+          <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
 
+          <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
           <WeeklyBossBar state={state} today={today} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -375,9 +419,18 @@ const styles = StyleSheet.create({
   weaknessHit: { color: colors.rested, fontWeight: '700' },
   bossName: { color: colors.goldLight },
   hp: { color: colors.textMuted, fontSize: 13, textAlign: 'right', fontVariant: ['tabular-nums'] },
-  damageRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'baseline', gap: spacing.sm },
-  damageLabel: { color: colors.textMuted, fontFamily: fonts.title, fontSize: 14 },
-  damageValue: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 28 },
+  hpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
+  damageValue: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16 },
+  setBox: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.stone,
+  },
+  setAmount: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 18 },
+  center: { textAlign: 'center' },
   message: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 15, textAlign: 'center' },
   chips: { gap: spacing.sm, paddingVertical: spacing.xs },
   chip: {

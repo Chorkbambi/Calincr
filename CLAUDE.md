@@ -57,7 +57,7 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
 - expo-sqlite, react-native-reanimated 4 (+ react-native-worklets), react-native-svg, @expo-google-fonts/cinzel,
   expo-haptics, expo-camera (permission only), react-native-webview, expo-screen-orientation,
   expo-asset + expo-file-system (reading the bundled MediaPipe files), expo-sharing + expo-document-picker
-  (backup), expo-notifications (local reminder), react-native-view-shot (share cards). `metro.config.js` adds the
+  (backup), expo-notifications (local reminder), react-native-view-shot (share cards), expo-keep-awake, expo-speech (voice count). `metro.config.js` adds the
   wasm/task/bin extensions.
 - Tests: Jest 29 via `jest-expo` (`__tests__/*.test.ts` files). GitHub Actions (`.github/workflows/ci.yml`)
   runs `npm ci`, `tsc --noEmit` and `npm test` on every push to main.
@@ -184,6 +184,13 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
   bump it to show the tutorial to everyone again.
 - **Completely free**: no purchase, no donation button, no ads.
 - **Accessibility**: "Large buttons" setting; text follows the phone's font size.
+- **Screen kept awake** on the Fight tab only (expo-keep-awake, tag `fight`), released when the tab is left.
+- **Voice count** (`voiceCount` setting, off by default; 🔊 toggle on the Fight screen, in the camera HUD and in Settings):
+  expo-speech says the set's rep total after each rep (holds: every `VOICE.holdStepSeconds`) and "Rest over" at the end
+  of the rest timer. Nothing else is spoken. Phrases in `src/game/voice.ts`.
+- **Level-up banner** (`LevelUpBanner`): "LEVEL UP!" over the arena with the muscles gained and the new damage per hit.
+- **Fight screen order**: enemy (HP + damage per hit on one line), arena, exercise list, controls, current set, voice
+  toggle, daily quest (one line once completed), Weekly Titan.
 - **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 
 ## Conventions
@@ -196,6 +203,8 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - Assets: original SVG shapes only, no protected content. Icon and splash generated from
   `assets/branding/` (emblem.svg, render-icons.cjs).
 - Clear commits, one per step. `npx tsc --noEmit` and `npm test` must pass.
+- **Merging**: the owner does not review code. Once CI is green, merge the pull request into `main` yourself,
+  without waiting for a confirmation.
 
 ## Decisions to validate
 
