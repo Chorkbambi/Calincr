@@ -208,6 +208,62 @@ export const QUEST = {
   minGold: 10,
 } as const;
 
+/**
+ * Progression chains: each exercise leads to a harder variation of the same movement.
+ * When the best set of an exercise reaches TIER_UP, the next one is suggested.
+ */
+export const PROGRESSIONS: readonly (readonly ExerciseId[])[] = [
+  ['wall_pushup', 'knee_pushup', 'pushup', 'diamond_pushup'],
+  ['pike_pushup', 'elevated_pike_pushup'],
+  ['chair_dip', 'bench_dip', 'dip'],
+  ['door_row', 'inverted_row', 'chinup', 'pullup'],
+  ['chair_squat', 'squat', 'bulgarian_split_squat', 'pistol_squat'],
+  ['glute_bridge', 'single_leg_bridge', 'nordic_curl'],
+  ['calf_raise', 'single_leg_calf_raise'],
+  ['crunch', 'leg_raise', 'hanging_leg_raise'],
+  ['knee_plank', 'plank', 'hollow_hold'],
+];
+
+/** Best set needed before the next variation is suggested (reps, or seconds for holds). */
+export const TIER_UP = { reps: 15, seconds: 60 } as const;
+
+/**
+ * Skills: long-term goals made of steps (a best set to reach on an exercise).
+ * Progress comes from the personal records, so nothing extra is saved.
+ */
+export interface SkillConfig {
+  id: string;
+  name: string;
+  icon: string;
+  steps: readonly { exerciseId: ExerciseId; amount: number }[];
+}
+export const SKILLS: readonly SkillConfig[] = [
+  { id: 'pushup_master', name: 'Push-up Master', icon: '🛡️', steps: [
+    { exerciseId: 'knee_pushup', amount: 10 }, { exerciseId: 'pushup', amount: 10 }, { exerciseId: 'pushup', amount: 25 }, { exerciseId: 'pushup', amount: 50 },
+  ] },
+  { id: 'first_pullup', name: 'First Pull-up', icon: '🧗', steps: [
+    { exerciseId: 'door_row', amount: 15 }, { exerciseId: 'inverted_row', amount: 10 }, { exerciseId: 'chinup', amount: 1 }, { exerciseId: 'pullup', amount: 1 }, { exerciseId: 'pullup', amount: 10 },
+  ] },
+  { id: 'pistol_squat', name: 'Pistol Squat', icon: '🦵', steps: [
+    { exerciseId: 'chair_squat', amount: 20 }, { exerciseId: 'squat', amount: 30 }, { exerciseId: 'bulgarian_split_squat', amount: 10 }, { exerciseId: 'pistol_squat', amount: 1 }, { exerciseId: 'pistol_squat', amount: 5 },
+  ] },
+  { id: 'iron_plank', name: 'Iron Plank', icon: '🧱', steps: [
+    { exerciseId: 'knee_plank', amount: 60 }, { exerciseId: 'plank', amount: 60 }, { exerciseId: 'plank', amount: 120 }, { exerciseId: 'hollow_hold', amount: 60 },
+  ] },
+  { id: 'dip_power', name: 'Dip Power', icon: '⚔️', steps: [
+    { exerciseId: 'chair_dip', amount: 15 }, { exerciseId: 'bench_dip', amount: 15 }, { exerciseId: 'dip', amount: 1 }, { exerciseId: 'dip', amount: 10 },
+  ] },
+  { id: 'hanging_core', name: 'Hanging Core', icon: '🪝', steps: [
+    { exerciseId: 'crunch', amount: 25 }, { exerciseId: 'leg_raise', amount: 15 }, { exerciseId: 'hanging_leg_raise', amount: 1 }, { exerciseId: 'hanging_leg_raise', amount: 10 },
+  ] },
+  { id: 'nordic_curl', name: 'Nordic Curl', icon: '🔥', steps: [
+    { exerciseId: 'glute_bridge', amount: 20 }, { exerciseId: 'single_leg_bridge', amount: 15 }, { exerciseId: 'nordic_curl', amount: 1 }, { exerciseId: 'nordic_curl', amount: 5 },
+  ] },
+  { id: 'handstand_path', name: 'Handstand Path', icon: '🤸', steps: [
+    { exerciseId: 'pike_pushup', amount: 10 }, { exerciseId: 'elevated_pike_pushup', amount: 5 }, { exerciseId: 'elevated_pike_pushup', amount: 15 },
+  ] },
+];
+
 /** Session goal picked at the start of the day: scales the daily quest target (and its XP reward). */
 export const SESSION_GOAL = {
   short: 0.5,

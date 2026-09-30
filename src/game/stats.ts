@@ -104,3 +104,46 @@ export function weeklyProgress(
   }
   return result;
 }
+
+export interface MonthSummary {
+  month: string;
+  activeDays: number;
+  sets: number;
+  reps: number;
+  holdSeconds: number;
+  /** Exercise with the most volume this month. */
+  topExercise: ExerciseId | null;
+  /** Best sets of the month that beat everything done before the month. */
+  records: { exerciseId: ExerciseId; previous: number; best: number }[];
+}
+
+/** Summary of one month (`YYYY-MM`). `sets` may include earlier months: they set the records to beat. */
+export function monthSummary(sets: readonly SetRecord[], month: string): MonthSummary {
+  const before = new Map<ExerciseId, number>();
+  const bestInMonth = new Map<ExerciseId, number>();
+  const days = new Set<DayKey>();
+  const volume = new Map<ExerciseId, number>();
+  let count = 0;
+  let reps = 0;
+  let holdSeconds = 0;
+  for (const set of sets) {
+    const key = monthKey(set.day);
+    if (key < month) {
+      before.set(set.exerciseId, Math.max(before.get(set.exerciseId) ?? 0, set.amount));
+      continue;
+    }
+    if (key !== month || set.amount <= 0) continue;
+    count += 1;
+    days.add(set.day);
+    if (getExercise(set.exerciseId).unit === 'seconds') holdSeconds += set.amount;
+    else reps += set.amount;
+    bestInMonth.set(set.exerciseId, Math.max(bestInMonth.get(set.exerciseId) ?? 0, set.amount));
+    volume.set(set.exerciseId, (volume.get(set.exerciseId) ?? 0) + setVolume(set));
+  }
+  const records = [...bestInMonth.entries()]
+    .filter(([id, best]) => (before.get(id) ?? 0) > 0 && best > before.get(id)!)
+    .map(([exerciseId, best]) => ({ exerciseId, previous: before.get(exerciseId)!, best }))
+    .sort((a, b) => b.best / b.previous - a.best / a.previous);
+  const top = [...volume.entries()].sort((a, b) => b[1] - a[1])[0];
+  return { month, activeDays: days.size, sets: count, reps, holdSeconds, topExercise: top ? top[0] : null, records };
+}
