@@ -218,6 +218,11 @@ export const ACHIEVEMENT_REWARDS = {
 /** Rest timer choices offered in the app (seconds, 0 = off). */
 export const REST_TIMER_CHOICES = [0, 30, 60, 90, 120] as const;
 
+/** Voice count: holds are announced every N seconds (reps are announced one by one). */
+export const VOICE = {
+  holdStepSeconds: 10,
+} as const;
+
 /** Camera calibration: record the player for this long while they do slow reps (or hold). */
 export const CALIBRATION = {
   durationMs: 15_000,

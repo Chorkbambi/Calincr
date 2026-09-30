@@ -42,6 +42,16 @@ export function DailyQuestCard({
   const streak = quest.streak + (quest.completed ? 1 : 0);
   const muscles = evaluateExercise(state, exercise, quest.day).muscles;
 
+  // Done for today: one line is enough, the rest of the screen stays for the fight.
+  if (quest.completed) {
+    return (
+      <View style={styles.doneBox} accessibilityRole="summary">
+        <Text style={styles.done}>✓ Daily quest complete: {exercise.name}</Text>
+        {streak > 0 ? <Text style={styles.streak}>🔥 {streak}-day streak · a new quest tomorrow</Text> : null}
+      </View>
+    );
+  }
+
   return (
     <Panel title="Daily quest">
       {streak > 0 ? <Text style={styles.streak}>🔥 {streak}-day streak</Text> : null}
@@ -109,6 +119,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   cardSelected: { borderColor: colors.gold },
+  doneBox: {
+    gap: 2,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.rested,
+    backgroundColor: colors.stone,
+  },
   row: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
   name: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 17, flexShrink: 1 },
   howTo: { color: colors.goldLight, fontFamily: fonts.title, fontSize: 13 },

@@ -1,5 +1,5 @@
 /** Privacy policy shown in Settings (same text as PRIVACY.md at the root of the project). */
-export const PRIVACY_POLICY_UPDATED = '2026-09-28';
+export const PRIVACY_POLICY_UPDATED = '2026-09-30';
 
 export const PRIVACY_POLICY: { title: string; body: string[] }[] = [
   {
@@ -34,6 +34,12 @@ export const PRIVACY_POLICY: { title: string; body: string[] }[] = [
     title: 'Daily reminder',
     body: [
       'If you turn on the daily reminder, the notification is scheduled by your phone itself. No server and no push service are involved, and nothing is sent. Turn it off in Settings at any time.',
+    ],
+  },
+  {
+    title: 'Voice count',
+    body: [
+      "If you turn on the voice count, your phone's built-in voice reads the rep count out loud. The app only speaks: it never listens, records or sends anything.",
     ],
   },
   {

@@ -1,6 +1,6 @@
 # Calincr — Privacy policy
 
-Last updated: 2026-09-28
+Last updated: 2026-09-30
 
 ## In short
 
@@ -27,6 +27,10 @@ Last updated: 2026-09-28
 ## Daily reminder
 
 - If you turn on the daily reminder, the notification is scheduled by your phone itself. No server and no push service are involved, and nothing is sent. Turn it off in Settings at any time.
+
+## Voice count
+
+- If you turn on the voice count, your phone's built-in voice reads the rep count out loud. The app only speaks: it never listens, records or sends anything.
 
 ## Backups
 
