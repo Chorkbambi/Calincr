@@ -21,6 +21,7 @@ import { addXp } from './progression';
 import { INITIAL_RECOVERY, recoveryForSession, type RecoveryState } from './recovery';
 import { getWeapon } from './shop';
 import { enemyWeakness, exerciseStyle, gearEffects, type EquippedGear } from './styles';
+import { INITIAL_WEEKLY_GOAL, recordTrainingDay, type WeeklyGoalState } from './weeklyGoal';
 
 export interface MuscleState extends RecoveryState {
   level: number;
@@ -45,8 +46,10 @@ export interface GameState {
   equippedGear: EquippedGear;
   ownedCosmetics: CosmeticId[];
   equippedCosmetics: Record<CosmeticSlot, CosmeticId | null>;
-  /** Protect the daily-quest streak for one missed day each. */
+  /** Protect the weekly-goal streak for one missed week each. */
   streakFreezes: number;
+  /** Training days wanted per week and the weekly streak. */
+  weekly: WeeklyGoalState;
   /** Best set ever per exercise (reps, or seconds for holds). */
   records: Partial<Record<ExerciseId, number>>;
   /** Record in progress: the best set before the current set started (so a record is paid once per set). */
@@ -108,6 +111,7 @@ export function createInitialState(): GameState {
     ownedCosmetics: [],
     equippedCosmetics: { glow: null, numbers: null },
     streakFreezes: 0,
+    weekly: { ...INITIAL_WEEKLY_GOAL },
     records: {},
     recordRun: null,
     weeklyBoss: null,
@@ -163,6 +167,8 @@ export interface WorkOutcome {
   goldEarned: number;
   /** Gold paid when this work defeated the weekly boss. */
   weeklyBossGold: number | null;
+  /** Gold paid when this work met the week's training-days goal. */
+  weeklyGoalGold: number | null;
 }
 
 /** HP of a new weekly boss for this player (scales with their damage). */
@@ -252,6 +258,7 @@ export function applyWork(
     combo: { ...previous.combo },
     lifetime: { ...previous.lifetime },
     achievements: [...previous.achievements],
+    weekly: { ...previous.weekly, days: [...previous.weekly.days] },
   };
   const outcome: WorkOutcome = {
     exerciseId,
@@ -264,6 +271,7 @@ export function applyWork(
     kills: [],
     goldEarned: 0,
     weeklyBossGold: null,
+    weeklyGoalGold: null,
   };
   if (units === 0) return { state, outcome };
   state.weeklyBoss = currentWeeklyBoss(state, day);
@@ -275,6 +283,8 @@ export function applyWork(
     state.lifetime.activeDays += 1;
     state.lifetime.lastActiveDay = day;
   }
+  outcome.weeklyGoalGold = recordTrainingDay(state, day);
+  if (outcome.weeklyGoalGold !== null) outcome.goldEarned += outcome.weeklyGoalGold;
 
   const weights = muscleWeights(exercise);
   for (const [muscle] of weights) {

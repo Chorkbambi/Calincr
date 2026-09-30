@@ -1,4 +1,4 @@
-import { EXERCISES, QUEST, type Difficulty, type ExerciseId, type MuscleId } from './config';
+import { COMEBACK, EXERCISES, QUEST, SESSION_GOAL, type Difficulty, type ExerciseId, type MuscleId } from './config';
 import { daysBetween, type DayKey } from './dates';
 import { enemyMaxHp } from './enemy';
 import type { GameState, WorkOutcome } from './engine';
@@ -8,21 +8,31 @@ import { recommendExercises } from './recommend';
 import { exerciseStyle } from './styles';
 import type { SetRecord } from './sets';
 
+export type SessionGoal = keyof typeof SESSION_GOAL;
+export const SESSION_GOALS = Object.keys(SESSION_GOAL) as SessionGoal[];
+
 /** The one exercise suggested for the day. The app motivates; it doesn't coach. */
 export interface DailyQuest {
   day: DayKey;
   exerciseId: ExerciseId;
   /** Reps (or seconds for holds) to do today, in total. */
   target: number;
+  /** Target and number of sets before the session goal (normal session). */
+  baseTarget: number;
+  baseSets: number;
+  /** Session length picked today (null = not asked yet or skipped). */
+  goal: SessionGoal | null;
+  /** First workout after a break of COMEBACK.minDaysAway days or more: lighter target, bonus gold. */
+  comeback: boolean;
   sets: number;
   perSet: number;
   progress: number;
   completed: boolean;
   rewardXp: number;
   rewardGold: number;
-  /** Quests completed on consecutive days before today. */
+  /** Quests completed on consecutive days before today (kept for stats; the weekly goal is the streak shown). */
   streak: number;
-  /** Streak freezes spent to keep the streak when this quest was created. */
+  /** Always 0 now: streak freezes protect the weekly goal (kept so old saves still load). */
   freezesUsed: number;
   /** Rest bonus of the exercise today (1.2 = +20% XP). */
   effectiveMultiplier: number;
@@ -150,44 +160,52 @@ export function createDailyQuest(
   const best = recommendExercises(state, today, difficulty)[0];
   if (!best) throw new Error('No exercise available');
   const exercise = getExercise(best.exerciseId);
-  const { target, lastDone, preferredSets } = questTarget(best.exerciseId, history, today, best.effectiveMultiplier);
-  const { sets, perSet } = splitIntoSets(target, exercise.unit, preferredSets);
+  const planned = questTarget(best.exerciseId, history, today, best.effectiveMultiplier);
+  const away = state.lifetime.lastActiveDay ? daysBetween(state.lifetime.lastActiveDay, today) : 0;
+  const comeback = away >= COMEBACK.minDaysAway;
+  // Back after a break: a lighter day, unless the target already dropped for a long pause on this exercise.
+  const alreadyLighter = planned.lastDone !== null && daysBetween(planned.lastDone.day, today) >= QUEST.detrainDays;
+  const target =
+    comeback && !alreadyLighter ? Math.max(QUEST.minTarget[exercise.unit], Math.round(planned.target * COMEBACK.targetFactor)) : planned.target;
+  const { sets, perSet } = splitIntoSets(target, exercise.unit, planned.preferredSets);
   let streak = 0;
-  let freezesUsed = 0;
   if (previous && previous.day < today) {
-    const kept = previous.streak + (previous.completed ? 1 : 0);
-    const missed = daysBetween(previous.day, today) - (previous.completed ? 1 : 0);
-    if (missed === 0) {
-      streak = kept;
-    } else if (kept > 0 && missed <= state.streakFreezes) {
-      streak = kept;
-      freezesUsed = missed;
-    }
+    streak = daysBetween(previous.day, today) === 1 && previous.completed ? previous.streak + 1 : 0;
   } else if (previous && previous.day === today) {
     streak = previous.streak;
-    freezesUsed = previous.freezesUsed;
   }
+  const gold = Math.max(QUEST.minGold, Math.round(enemyMaxHp(state.enemy.level, 0) * QUEST.goldPerMonsterHp));
   return {
     day: today,
     exerciseId: best.exerciseId,
     target,
+    baseTarget: target,
+    baseSets: sets,
+    goal: null,
+    comeback,
     sets,
     perSet,
     progress: 0,
     completed: false,
     rewardXp: Math.round(target * exercise.baseXp * QUEST.xpBonusRatio),
-    rewardGold: Math.max(QUEST.minGold, Math.round(enemyMaxHp(state.enemy.level, 0) * QUEST.goldPerMonsterHp)),
+    rewardGold: comeback ? Math.round(gold * COMEBACK.goldFactor) : gold,
     streak,
-    freezesUsed,
+    freezesUsed: 0,
     effectiveMultiplier: best.effectiveMultiplier,
-    lastDone,
+    lastDone: planned.lastDone,
   };
 }
 
-/** Spends the freezes a new day's quest used (call once, when the quest replaces one from an earlier day). */
-export function spendStreakFreezes(state: GameState, quest: DailyQuest): GameState {
-  if (quest.freezesUsed <= 0) return state;
-  return { ...state, streakFreezes: Math.max(0, state.streakFreezes - quest.freezesUsed) };
+/**
+ * Session length picked for today: scales the quest target (and its XP reward).
+ * Only before the first rep of the quest, so a quest can't be shrunk once started.
+ */
+export function applySessionGoal(quest: DailyQuest, goal: SessionGoal): DailyQuest {
+  if (quest.progress > 0 || quest.completed) return quest;
+  const exercise = getExercise(quest.exerciseId);
+  const target = Math.max(QUEST.minTarget[exercise.unit], Math.round(quest.baseTarget * SESSION_GOAL[goal]));
+  const { sets, perSet } = splitIntoSets(target, exercise.unit, quest.baseSets);
+  return { ...quest, goal, target, sets, perSet, rewardXp: Math.round(target * exercise.baseXp * QUEST.xpBonusRatio) };
 }
 
 /** True when the stored quest should be replaced (new day, or its exercise left the difficulty mode untouched). */
@@ -269,5 +287,9 @@ export function restoreQuest(raw: unknown): DailyQuest | null {
     freezesUsed: int(q.freezesUsed) ?? 0,
     effectiveMultiplier: effective,
     lastDone,
+    baseTarget: int(q.baseTarget) || target,
+    baseSets: int(q.baseSets) || sets,
+    goal: typeof q.goal === 'string' && (SESSION_GOALS as string[]).includes(q.goal) ? (q.goal as SessionGoal) : null,
+    comeback: q.comeback === true,
   };
 }

@@ -18,7 +18,6 @@ import {
   questNeedsRefresh,
   recordWork,
   seedRecords,
-  spendStreakFreezes,
   trackRecord,
   type NewRecord,
   toDayKey,
@@ -161,11 +160,6 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
         const next = createDailyQuest(current, today, settingsRef.current.difficulty, history, previous);
         questRef.current = next;
         setQuest(next);
-        if (previous?.day !== today && next.freezesUsed > 0) {
-          const frozen = spendStreakFreezes(current, next);
-          commitState(frozen);
-          enqueueSave(() => repository.saveState(frozen));
-        }
         enqueueSave(() => repository.saveQuest(next));
       })
       .catch((error: unknown) => console.warn('Quest creation failed', error))

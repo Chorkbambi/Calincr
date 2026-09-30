@@ -25,6 +25,8 @@ export interface Settings {
   largeButtons: boolean;
   /** Voice counts the reps of the set out loud and says when the rest is over (phone's own voice, offline). */
   voiceCount: boolean;
+  /** Ask each day how long the session will be (short / normal / big), before the daily quest. */
+  askSessionGoal: boolean;
   /** Monday of the last week whose recap was shown. */
   lastRecapWeek: string | null;
 }
@@ -40,6 +42,7 @@ export const DEFAULT_SETTINGS: Settings = {
   favorites: [],
   largeButtons: false,
   voiceCount: false,
+  askSessionGoal: true,
   lastRecapWeek: null,
 };
 
@@ -81,6 +84,7 @@ export function restoreSettings(raw: unknown): Settings {
       : [],
     largeButtons: r.largeButtons === true,
     voiceCount: r.voiceCount === true,
+    askSessionGoal: r.askSessionGoal !== false,
     lastRecapWeek: typeof r.lastRecapWeek === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.lastRecapWeek) ? r.lastRecapWeek : null,
   };
 }

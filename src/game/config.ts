@@ -208,6 +208,34 @@ export const QUEST = {
   minGold: 10,
 } as const;
 
+/** Session goal picked at the start of the day: scales the daily quest target (and its XP reward). */
+export const SESSION_GOAL = {
+  short: 0.5,
+  normal: 1,
+  big: 1.3,
+} as const;
+
+/** Back after a break: lighter quest and bonus gold, instead of a broken streak. */
+export const COMEBACK = {
+  /** Days since the last workout. */
+  minDaysAway: 3,
+  targetFactor: 0.8,
+  goldFactor: 1.5,
+} as const;
+
+/**
+ * Weekly goal: train on N different days per week (the player picks N). Meeting it pays gold and extends
+ * the weekly streak (weeks in a row). Rest days are part of the plan, unlike a daily streak.
+ * Reward = max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)).
+ */
+export const WEEKLY_GOAL = {
+  defaultDays: 3,
+  minDays: 1,
+  maxDays: 7,
+  goldPerMonsterHp: 5,
+  minGold: 50,
+} as const;
+
 /** Combo: hits with less than windowMs between them chain; every hitsPerStep hits add bonusPerStep damage (capped). */
 export const COMBO = {
   windowMs: 10_000,
@@ -261,7 +289,7 @@ export const RECORDS = {
   minGold: 10,
 } as const;
 
-/** Streak freeze: protects the daily-quest streak for one missed day. Price scales with the enemy level. */
+/** Streak freeze: protects the weekly-goal streak for one missed week. Price scales with the enemy level. */
 export const STREAK_FREEZE = {
   maxOwned: 2,
   goldPerMonsterHp: 3,

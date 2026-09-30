@@ -1,6 +1,7 @@
 import { createEnemy } from '../enemy';
 import { applyWork, createInitialState, currentWeeklyBoss, type GameState } from '../engine';
-import { createDailyQuest, spendStreakFreezes } from '../quest';
+import { applySessionGoal, createDailyQuest } from '../quest';
+import { rollWeeklyGoal, setWeeklyGoal } from '../weeklyGoal';
 import { seedRecords, trackRecord } from '../records';
 import { restoreState } from '../serialization';
 import { buyCosmetic, buyGear, buyStreakFreeze, equipCosmetic, equipGear, streakFreezePrice } from '../shop';
@@ -148,32 +149,71 @@ describe('personal records', () => {
   });
 });
 
+describe('weekly goal', () => {
+  // Training on a given local day at noon.
+  const train = (state: GameState, day: string) => applyWork(state, 'pushup', { kind: 'reps', count: 5 }, new Date(`${day}T12:00:00`));
+
+  it('pays gold and extends the streak once the week has enough training days', () => {
+    let state = setWeeklyGoal(createInitialState(), 2).state;
+    let r = train(state, '2026-03-09');
+    expect(r.outcome.weeklyGoalGold).toBeNull();
+    r = train(r.state, '2026-03-09');
+    expect(r.state.weekly.days).toEqual(['2026-03-09']);
+    r = train(r.state, '2026-03-11');
+    // HP of the level's first monster (20) × 5.
+    expect(r.outcome.weeklyGoalGold).toBe(100);
+    expect(r.state.weekly).toMatchObject({ streak: 1, best: 1, rewarded: true });
+    // Paid once per week.
+    r = train(r.state, '2026-03-12');
+    expect(r.outcome.weeklyGoalGold).toBeNull();
+    state = r.state;
+    // Next week: the streak goes on.
+    r = train(state, '2026-03-16');
+    expect(r.state.weekly).toMatchObject({ weekStart: '2026-03-16', days: ['2026-03-16'], streak: 1, rewarded: false });
+    r = train(r.state, '2026-03-18');
+    expect(r.state.weekly.streak).toBe(2);
+  });
+
+  it('resets the streak after a missed week, unless a freeze covers it', () => {
+    const met = { ...createInitialState(), weekly: { weekStart: '2026-03-02', days: ['2026-03-02', '2026-03-04', '2026-03-06'], goal: 3, streak: 5, best: 5, rewarded: true } };
+    // Week of March 9 skipped entirely, back on March 16.
+    expect(rollWeeklyGoal(met, '2026-03-16')).toMatchObject({ weekly: { streak: 0 }, freezesUsed: 0 });
+    expect(rollWeeklyGoal({ ...met, streakFreezes: 1 }, '2026-03-16')).toMatchObject({ weekly: { streak: 5 }, freezesUsed: 1 });
+    const r = train({ ...met, streakFreezes: 1 }, '2026-03-16');
+    expect(r.state.streakFreezes).toBe(0);
+    expect(r.state.weekly.streak).toBe(5);
+    // Rest days inside a week never break anything.
+    expect(rollWeeklyGoal(met, '2026-03-09').weekly.streak).toBe(5);
+  });
+
+  it('clamps the goal between 1 and 7 days', () => {
+    expect(setWeeklyGoal(createInitialState(), 0).state.weekly.goal).toBe(1);
+    expect(setWeeklyGoal(createInitialState(), 12).state.weekly.goal).toBe(7);
+  });
+});
+
+describe('session goal and comeback', () => {
+  it('scales the quest target, only before the first rep', () => {
+    const quest = { ...createDailyQuest(createInitialState(), TODAY, 'normal', [], null), baseTarget: 20, target: 20, baseSets: 2 };
+    expect(applySessionGoal(quest, 'short')).toMatchObject({ goal: 'short', target: 10, sets: 2, perSet: 5 });
+    expect(applySessionGoal(quest, 'big')).toMatchObject({ goal: 'big', target: 26, sets: 2, perSet: 13 });
+    expect(applySessionGoal({ ...quest, progress: 3 }, 'short').target).toBe(20);
+  });
+
+  it('gives a lighter quest and bonus gold after 3 days away', () => {
+    const base = createDailyQuest(createInitialState(), TODAY, 'normal', [], null);
+    expect(base.comeback).toBe(false);
+    const away = { ...createInitialState(), lifetime: { ...createInitialState().lifetime, lastActiveDay: '2026-03-06' } };
+    const quest = createDailyQuest(away, TODAY, 'normal', [], null);
+    expect(quest.comeback).toBe(true);
+    expect(quest.target).toBe(Math.round(base.target * 0.8));
+    expect(quest.rewardGold).toBe(Math.round(base.rewardGold * 1.5));
+    const yesterday = { ...away, lifetime: { ...away.lifetime, lastActiveDay: '2026-03-08' } };
+    expect(createDailyQuest(yesterday, TODAY, 'normal', [], null).comeback).toBe(false);
+  });
+});
+
 describe('streak freeze', () => {
-  const quest = (day: string, completed: boolean, streak: number) => ({
-    ...createDailyQuest(createInitialState(), day, 'normal', [], null),
-    completed,
-    streak,
-  });
-
-  it('keeps the streak over missed days when enough freezes are owned', () => {
-    const withOne = { ...createInitialState(), streakFreezes: 1 };
-    const q = createDailyQuest(withOne, TODAY, 'normal', [], quest('2026-03-08', true, 2));
-    expect(q).toMatchObject({ streak: 3, freezesUsed: 1 });
-    expect(spendStreakFreezes(withOne, q).streakFreezes).toBe(0);
-    expect(createDailyQuest(createInitialState(), TODAY, 'normal', [], quest('2026-03-08', true, 2)).streak).toBe(0);
-    expect(createDailyQuest(withOne, TODAY, 'normal', [], quest('2026-03-07', true, 2)).streak).toBe(0);
-  });
-
-  it('covers a quest left unfinished yesterday', () => {
-    const q = createDailyQuest({ ...createInitialState(), streakFreezes: 2 }, TODAY, 'normal', [], quest('2026-03-09', false, 4));
-    expect(q).toMatchObject({ streak: 4, freezesUsed: 1 });
-  });
-
-  it('never spends a freeze when there is no streak to save', () => {
-    const q = createDailyQuest({ ...createInitialState(), streakFreezes: 2 }, TODAY, 'normal', [], quest('2026-03-08', false, 0));
-    expect(q).toMatchObject({ streak: 0, freezesUsed: 0 });
-  });
-
   it('is sold in the shop, two at most', () => {
     let state: GameState = { ...createInitialState(), gold: 1000 };
     expect(streakFreezePrice(state)).toBe(60);
@@ -196,6 +236,7 @@ describe('restoring the new fields', () => {
       ownedCosmetics: ['glow_frost'],
       equippedCosmetics: { glow: 'glow_frost', numbers: 'glow_frost' },
       streakFreezes: 99,
+      weekly: { weekStart: '2026-03-09', days: ['2026-03-09', 'bad', '2026-03-09'], goal: 40, streak: 3, best: 1, rewarded: true },
       records: { pushup: 20, nope: 3, squat: -1 },
       weeklyBoss: { weekStart: '2026-03-09', hp: 5000, maxHp: 3000 },
     };
@@ -204,6 +245,8 @@ describe('restoring the new fields', () => {
     expect(state.equippedGear).toEqual({ armor: 'leather_armor', ring: null });
     expect(state.equippedCosmetics).toEqual({ glow: 'glow_frost', numbers: null });
     expect(state.streakFreezes).toBe(2);
+    expect(state.weekly).toEqual({ weekStart: '2026-03-09', days: ['2026-03-09'], goal: 7, streak: 3, best: 3, rewarded: true });
+    expect(restoreState({}).weekly).toMatchObject({ weekStart: '', goal: 3, streak: 0 });
     expect(state.records).toEqual({ pushup: 20 });
     expect(state.weeklyBoss).toEqual({ weekStart: '2026-03-09', hp: 3000, maxHp: 3000, defeated: false });
   });

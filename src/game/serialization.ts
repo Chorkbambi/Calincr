@@ -1,10 +1,11 @@
-import { MUSCLE_IDS, STARTING_WEAPON, STREAK_FREEZE, type CosmeticId, type ExerciseId, type GearId, type WeaponId } from './config';
+import { MUSCLE_IDS, STARTING_WEAPON, STREAK_FREEZE, WEEKLY_GOAL, type CosmeticId, type ExerciseId, type GearId, type WeaponId } from './config';
 import { getCosmetic, getGear, isCosmeticId, isGearId } from './styles';
 import { isExerciseId } from './exercises';
 import { createEnemy, enemyMaxHp } from './enemy';
 import { createInitialState, EMPTY_LIFETIME, type GameState } from './engine';
 import { isWeaponId } from './shop';
 import { ACHIEVEMENTS } from './achievements';
+import { clampWeeklyGoal } from './weeklyGoal';
 
 type Loose = Record<string, unknown>;
 
@@ -104,6 +105,23 @@ export function restoreState(raw: unknown): GameState {
   }
 
   state.streakFreezes = Math.min(STREAK_FREEZE.maxOwned, int(raw.streakFreezes, 0, 0));
+
+  const weekly = raw.weekly;
+  if (isObject(weekly)) {
+    const weekStart = typeof weekly.weekStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(weekly.weekStart) ? weekly.weekStart : '';
+    const days = Array.isArray(weekly.days)
+      ? [...new Set(weekly.days.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))].slice(0, 7)
+      : [];
+    const streak = int(weekly.streak, 0, 0);
+    state.weekly = {
+      weekStart,
+      days: weekStart ? days : [],
+      goal: clampWeeklyGoal(int(weekly.goal, WEEKLY_GOAL.defaultDays, WEEKLY_GOAL.minDays)),
+      streak,
+      best: Math.max(streak, int(weekly.best, 0, 0)),
+      rewarded: weekStart !== '' && weekly.rewarded === true,
+    };
+  }
 
   if (isObject(raw.records)) {
     for (const [id, value] of Object.entries(raw.records)) {
