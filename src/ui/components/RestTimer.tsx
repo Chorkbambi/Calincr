@@ -2,14 +2,26 @@ import * as Haptics from 'expo-haptics';
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { REST_OVER_PHRASE } from '../../game';
 import { colors, fonts, radius, spacing } from '../theme';
+import { say } from '../voice';
 import { GoldButton } from './GoldButton';
 import { ProgressBar } from './ProgressBar';
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-/** Countdown shown after a set; vibrates when the rest is over. */
-export function RestTimer({ startedAt, seconds, onDone }: { startedAt: number; seconds: number; onDone: () => void }) {
+/** Countdown shown after a set; vibrates (and speaks, if the voice count is on) when the rest is over. */
+export function RestTimer({
+  startedAt,
+  seconds,
+  onDone,
+  voice = false,
+}: {
+  startedAt: number;
+  seconds: number;
+  onDone: () => void;
+  voice?: boolean;
+}) {
   const [now, setNow] = useState(Date.now());
   const left = Math.max(0, seconds - Math.floor((now - startedAt) / 1000));
 
@@ -21,6 +33,7 @@ export function RestTimer({ startedAt, seconds, onDone }: { startedAt: number; s
   useEffect(() => {
     if (left === 0) {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+      if (voice) say(REST_OVER_PHRASE);
       const t = setTimeout(onDone, 1500);
       return () => clearTimeout(t);
     }

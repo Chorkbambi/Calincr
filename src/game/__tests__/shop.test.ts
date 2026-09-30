@@ -53,6 +53,7 @@ describe('settings', () => {
       reminder: { enabled: false, hour: 18, minute: 0 },
       favorites: [],
       largeButtons: false,
+      voiceCount: false,
       lastRecapWeek: null,
     });
   });
@@ -75,6 +76,7 @@ describe('settings', () => {
       reminder: { enabled: true, hour: 7, minute: 30 },
       favorites: ['pushup', 'squat'],
       largeButtons: true,
+      voiceCount: true,
       lastRecapWeek: '2026-09-21',
     };
     expect(restoreSettings(valid)).toEqual(valid);

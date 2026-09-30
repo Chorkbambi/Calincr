@@ -45,6 +45,8 @@ export type WorkResult = WorkOutcome & {
   questCompleted: DailyQuest | null;
   achievements: UnlockedAchievement[];
   record: NewRecord | null;
+  /** Total of the open set after this work (reps, or seconds for holds). */
+  setAmount: number;
 };
 
 /** A shop operation: returns the new state or an error. */
@@ -182,7 +184,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       const now = new Date();
       const result = applyWork(current, exerciseId, input, now);
       let nextState = result.state;
-      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null };
+      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null, setAmount: 0 };
       let nextQuest: DailyQuest | null = null;
       if (questRef.current) {
         const progressed = progressQuest(questRef.current, result.outcome);
@@ -200,6 +202,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       }
       const set = result.outcome.amount > 0 ? recordWork(setRef.current, result.outcome, now, newId) : setRef.current;
       setRef.current = set;
+      outcome.setAmount = set?.amount ?? 0;
       if (set && result.outcome.amount > 0) {
         const tracked = trackRecord(nextState, exerciseId, set.id, set.amount);
         nextState = tracked.state;

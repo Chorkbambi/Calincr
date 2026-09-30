@@ -23,6 +23,8 @@ export interface Settings {
   favorites: ExerciseId[];
   /** Bigger buttons during the fight. */
   largeButtons: boolean;
+  /** Voice counts the reps of the set out loud and says when the rest is over (phone's own voice, offline). */
+  voiceCount: boolean;
   /** Monday of the last week whose recap was shown. */
   lastRecapWeek: string | null;
 }
@@ -37,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reminder: { enabled: false, hour: 18, minute: 0 },
   favorites: [],
   largeButtons: false,
+  voiceCount: false,
   lastRecapWeek: null,
 };
 
@@ -77,6 +80,7 @@ export function restoreSettings(raw: unknown): Settings {
       ? [...new Set(r.favorites.filter((f): f is ExerciseId => typeof f === 'string' && isExerciseId(f)))]
       : [],
     largeButtons: r.largeButtons === true,
+    voiceCount: r.voiceCount === true,
     lastRecapWeek: typeof r.lastRecapWeek === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.lastRecapWeek) ? r.lastRecapWeek : null,
   };
 }

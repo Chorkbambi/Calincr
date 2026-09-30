@@ -184,6 +184,15 @@ export default function SettingsScreen() {
           </View>
         </Panel>
 
+        <Panel title="Voice count">
+          <Toggle
+            label="Count reps out loud"
+            description="Your phone’s voice counts the reps of the set (holds: every 10 s) and says when the rest is over. Also on the Fight screen."
+            value={settings.voiceCount}
+            onChange={(voiceCount) => updateSettings({ voiceCount })}
+          />
+        </Panel>
+
         <Panel title="Daily reminder">
           <Toggle
             label="Remind me to train"
