@@ -1,3 +1,4 @@
+import { useIsFocused } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -12,11 +13,14 @@ import { ShareCardModal, type ShareCardData } from './ShareCardModal';
 /** "Hero passport" of a month: days, volume, top exercise and records beaten, shareable as a picture. */
 export function MonthSummaryPanel({ year, month, lastDay }: { year: number; month: number; lastDay: DayKey }) {
   const { repository, dataVersion } = useGame();
+  const focused = useIsFocused();
   const [sets, setSets] = useState<SetRecord[]>([]);
   const [card, setCard] = useState<ShareCardData | null>(null);
   const key = `${year}-${String(month).padStart(2, '0')}`;
 
   useEffect(() => {
+    // Only while the Calendar tab is shown: not after every rep of the fight.
+    if (!focused) return undefined;
     let cancelled = false;
     // Earlier months are needed to know which records were beaten this month.
     repository.listSets('2000-01-01', lastDay).then((rows) => {
@@ -25,7 +29,7 @@ export function MonthSummaryPanel({ year, month, lastDay }: { year: number; mont
     return () => {
       cancelled = true;
     };
-  }, [repository, dataVersion, lastDay]);
+  }, [repository, dataVersion, lastDay, focused]);
 
   const summary = useMemo(() => monthSummary(sets, key), [sets, key]);
   const name = `${MONTH_NAMES[month - 1]} ${year}`;
