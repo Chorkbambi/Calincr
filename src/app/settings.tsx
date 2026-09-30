@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { REST_TIMER_CHOICES, type Difficulty, type InputMode } from '../game';
+import { REST_TIMER_CHOICES, setWeeklyGoal, WEEKLY_GOAL, type Difficulty, type InputMode } from '../game';
 import { cancelDailyReminder, scheduleDailyReminder } from '../notifications/reminders';
 import { useGame } from '../state/GameProvider';
 import { formatClock, restTimerLabel } from '../ui/format';
@@ -103,7 +103,9 @@ const DIFFICULTIES: { value: Difficulty; label: string; description: string }[] 
 ];
 
 export default function SettingsScreen() {
-  const { settings, updateSettings, resetProgress } = useGame();
+  const { state, settings, updateSettings, resetProgress, transact } = useGame();
+  const weeklyGoal = state.weekly.goal;
+  const changeWeeklyGoal = (delta: number) => transact((s) => setWeeklyGoal(s, s.weekly.goal + delta));
   const [policyOpen, setPolicyOpen] = useState(false);
   const [licensesOpen, setLicensesOpen] = useState(false);
 
@@ -182,6 +184,28 @@ export default function SettingsScreen() {
               );
             })}
           </View>
+        </Panel>
+
+        <Panel title="Weekly goal">
+          <Text style={styles.muted}>
+            Training days you aim for each week. Meeting it pays gold and grows your streak of weeks: rest days never break
+            it.
+          </Text>
+          <Stepper
+            label="Days per week"
+            value={`${weeklyGoal} day${weeklyGoal > 1 ? 's' : ''}`}
+            onMinus={() => weeklyGoal > WEEKLY_GOAL.minDays && changeWeeklyGoal(-1)}
+            onPlus={() => weeklyGoal < WEEKLY_GOAL.maxDays && changeWeeklyGoal(1)}
+          />
+        </Panel>
+
+        <Panel title="Daily quest">
+          <Toggle
+            label="Ask how much time I have"
+            description="Each day, before the quest: short, normal or big session (with a Skip button)."
+            value={settings.askSessionGoal}
+            onChange={(askSessionGoal) => updateSettings({ askSessionGoal })}
+          />
         </Panel>
 
         <Panel title="Voice count">

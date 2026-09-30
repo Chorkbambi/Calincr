@@ -25,7 +25,10 @@ describe('achievements', () => {
     const rewarded = applyQuestReward(state, quest).state;
     expect(rewarded.lifetime).toMatchObject({ questsCompleted: 1, bestQuestStreak: 7 });
     const ids = checkAchievements(rewarded).unlocked.map((u) => u.id);
-    expect(ids).toEqual(expect.arrayContaining(['quest_taker', 'unbreakable']));
+    expect(ids).toEqual(['quest_taker']);
+    // The streak achievements follow the weekly goal (4 weeks in a row).
+    const weekly = { ...rewarded, weekly: { ...rewarded.weekly, best: 4 } };
+    expect(checkAchievements(weekly).unlocked.map((u) => u.id)).toEqual(expect.arrayContaining(['quest_taker', 'unbreakable']));
   });
 
   it('are saved and restored (unknown ids dropped)', () => {

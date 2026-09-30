@@ -180,9 +180,9 @@ export default function ShopScreen() {
             <Text style={styles.icon}>🧊</Text>
             <View style={styles.info}>
               <Text style={styles.name}>Streak Freeze</Text>
-              <Text style={styles.stat}>Missed a day? A freeze keeps your daily-quest streak alive.</Text>
+              <Text style={styles.stat}>Missed your weekly goal? A freeze keeps your streak of weeks alive.</Text>
               <Text style={styles.muted}>
-                Used automatically, one per missed day. You have {state.streakFreezes} / {STREAK_FREEZE.maxOwned}.
+                Used automatically, one per missed week. You have {state.streakFreezes} / {STREAK_FREEZE.maxOwned}.
               </Text>
               {state.streakFreezes >= STREAK_FREEZE.maxOwned ? (
                 <Text style={styles.equippedText}>Fully stocked</Text>

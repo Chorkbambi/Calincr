@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
-import { EXERCISES, weeklyProgress, type DayKey, type ExerciseId } from '../../game';
+import { bestSetTrend, EXERCISES, weeklyProgress, type DayKey, type ExerciseId } from '../../game';
 import { useGame } from '../../state/GameProvider';
 import { formatAmount, formatDayShort } from '../format';
 import { colors, fonts, radius, spacing } from '../theme';
@@ -42,6 +42,7 @@ export function ExerciseProgressPanel({ today }: { today: DayKey }) {
   }, [repository, dataVersion, exerciseId]);
 
   const weeks = useMemo(() => weeklyProgress(days, today, WEEKS), [days, today]);
+  const trend = useMemo(() => bestSetTrend(weeks), [weeks]);
 
   if (!exerciseId) {
     return (
@@ -77,10 +78,17 @@ export function ExerciseProgressPanel({ today }: { today: DayKey }) {
         })}
       </ScrollView>
       {record ? <Text style={styles.record}>🏅 Record: {format(record)} in one set</Text> : null}
+      {trend ? (
+        <Text style={[styles.trend, trend.change < 0 && styles.trendDown]}>
+          {trend.change >= 0 ? '📈' : '📉'} Best set: {format(trend.first)} → {format(trend.last)} (
+          {trend.change >= 0 ? '+' : ''}
+          {Math.round(trend.change * 100)}%) over {WEEKS} weeks
+        </Text>
+      ) : null}
+      <Text style={styles.chartTitle}>Best set per week — your max ({unit})</Text>
+      <ProgressChart points={points('best')} kind="line" format={format} />
       <Text style={styles.chartTitle}>Total per week ({unit})</Text>
       <ProgressChart points={points('volume')} kind="bar" format={format} />
-      <Text style={styles.chartTitle}>Best set per week ({unit})</Text>
-      <ProgressChart points={points('best')} kind="line" format={format} />
     </Panel>
   );
 }
@@ -102,5 +110,7 @@ const styles = StyleSheet.create({
   chipText: { color: colors.textMuted, fontSize: 13 },
   chipTextSelected: { color: colors.goldLight },
   record: { color: colors.goldLight, fontSize: 14, marginBottom: spacing.sm },
+  trend: { color: colors.rested, fontFamily: fonts.titleBold, fontSize: 14 },
+  trendDown: { color: colors.tired },
   chartTitle: { color: colors.parchment, fontFamily: fonts.title, fontSize: 14, marginTop: spacing.sm },
 });

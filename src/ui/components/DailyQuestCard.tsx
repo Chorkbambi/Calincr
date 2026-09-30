@@ -39,7 +39,6 @@ export function DailyQuestCard({
   const exercise = getExercise(quest.exerciseId);
   const seconds = exercise.unit === 'seconds';
   const unit = seconds ? 's' : ' reps';
-  const streak = quest.streak + (quest.completed ? 1 : 0);
   const muscles = evaluateExercise(state, exercise, quest.day).muscles;
 
   // Done for today: one line is enough, the rest of the screen stays for the fight.
@@ -47,18 +46,18 @@ export function DailyQuestCard({
     return (
       <View style={styles.doneBox} accessibilityRole="summary">
         <Text style={styles.done}>✓ Daily quest complete: {exercise.name}</Text>
-        {streak > 0 ? <Text style={styles.streak}>🔥 {streak}-day streak · a new quest tomorrow</Text> : null}
+        <Text style={styles.muted}>A new quest waits for you tomorrow.</Text>
       </View>
     );
   }
 
   return (
     <Panel title="Daily quest">
-      {streak > 0 ? <Text style={styles.streak}>🔥 {streak}-day streak</Text> : null}
-      {quest.freezesUsed > 0 ? (
-        <Text style={styles.freeze}>
-          🧊 Streak saved: {quest.freezesUsed} streak freeze{quest.freezesUsed > 1 ? 's' : ''} used
-        </Text>
+      {quest.comeback ? (
+        <Text style={styles.streak}>👋 Welcome back, hero! An easier quest today, with bonus gold.</Text>
+      ) : null}
+      {quest.goal && quest.goal !== 'normal' ? (
+        <Text style={styles.muted}>{quest.goal === 'short' ? '⚡ Short session today' : '🔥 Big session today'}</Text>
       ) : null}
       <Pressable
         onPress={() => onSelect(quest.exerciseId)}

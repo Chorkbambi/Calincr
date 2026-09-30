@@ -20,3 +20,5 @@ export * from './backup';
 export * from './records';
 export * from './styles';
 export * from './voice';
+export * from './weeklyGoal';
+export * from './skills';

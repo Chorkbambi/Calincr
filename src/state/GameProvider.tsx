@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import {
   addDays,
   applyQuestReward,
+  applySessionGoal,
   applyWork,
   buyWeapon,
   checkAchievements,
@@ -17,9 +18,10 @@ import {
   QUEST,
   questNeedsRefresh,
   recordWork,
+  newSkillSteps,
   seedRecords,
-  spendStreakFreezes,
   trackRecord,
+  type SessionGoal,
   type NewRecord,
   toDayKey,
   type BackupError,
@@ -47,6 +49,8 @@ export type WorkResult = WorkOutcome & {
   record: NewRecord | null;
   /** Total of the open set after this work (reps, or seconds for holds). */
   setAmount: number;
+  /** Skill steps reached by this work (new personal records). */
+  skillSteps: { name: string; icon: string; done: number; total: number }[];
 };
 
 /** A shop operation: returns the new state or an error. */
@@ -64,6 +68,8 @@ interface GameContextValue {
   work(exerciseId: ExerciseId, input: WorkInput): WorkResult;
   /** Creates today's quest if needed (new day, difficulty change). */
   refreshQuest(): void;
+  /** Session length for today's quest (null = skipped: keeps the normal target and stops asking today). */
+  setSessionGoal(goal: SessionGoal | null): void;
   closeSet(): void;
   buy(weaponId: WeaponId): ShopError | null;
   equip(weaponId: WeaponId): ShopError | null;
@@ -161,11 +167,6 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
         const next = createDailyQuest(current, today, settingsRef.current.difficulty, history, previous);
         questRef.current = next;
         setQuest(next);
-        if (previous?.day !== today && next.freezesUsed > 0) {
-          const frozen = spendStreakFreezes(current, next);
-          commitState(frozen);
-          enqueueSave(() => repository.saveState(frozen));
-        }
         enqueueSave(() => repository.saveQuest(next));
       })
       .catch((error: unknown) => console.warn('Quest creation failed', error))
@@ -184,7 +185,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       const now = new Date();
       const result = applyWork(current, exerciseId, input, now);
       let nextState = result.state;
-      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null, setAmount: 0 };
+      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null, setAmount: 0, skillSteps: [] };
       let nextQuest: DailyQuest | null = null;
       if (questRef.current) {
         const progressed = progressQuest(questRef.current, result.outcome);
@@ -209,6 +210,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
         outcome.record = tracked.record;
         if (tracked.record) outcome.goldEarned += tracked.record.gold;
       }
+      outcome.skillSteps = newSkillSteps(current.records, nextState.records);
       const checked = checkAchievements(nextState);
       nextState = checked.state;
       outcome.achievements = checked.unlocked;
@@ -222,6 +224,19 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       return outcome;
     },
     [repository, commitState, enqueueSave, refreshQuest],
+  );
+
+  const setSessionGoal = useCallback(
+    (goal: SessionGoal | null) => {
+      const current = questRef.current;
+      if (!current || current.goal !== null || current.progress > 0) return;
+      // Skipping keeps the normal target; the quest remembers the answer so the question isn't asked again today.
+      const next = goal ? applySessionGoal(current, goal) : { ...applySessionGoal(current, 'normal'), goal: 'normal' as const };
+      questRef.current = next;
+      setQuest(next);
+      enqueueSave(() => repository.saveQuest(next));
+    },
+    [repository, enqueueSave],
   );
 
   const closeSet = useCallback(() => {
@@ -322,6 +337,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
             dataVersion,
             work,
             refreshQuest,
+            setSessionGoal,
             closeSet,
             buy,
             equip,
@@ -345,6 +361,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       dataVersion,
       work,
       refreshQuest,
+      setSessionGoal,
       closeSet,
       buy,
       equip,

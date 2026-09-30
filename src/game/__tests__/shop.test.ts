@@ -54,6 +54,7 @@ describe('settings', () => {
       favorites: [],
       largeButtons: false,
       voiceCount: false,
+      askSessionGoal: true,
       lastRecapWeek: null,
     });
   });
@@ -77,6 +78,7 @@ describe('settings', () => {
       favorites: ['pushup', 'squat'],
       largeButtons: true,
       voiceCount: true,
+      askSessionGoal: false,
       lastRecapWeek: '2026-09-21',
     };
     expect(restoreSettings(valid)).toEqual(valid);

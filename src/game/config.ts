@@ -172,8 +172,8 @@ export const MANUAL_INPUT = {
 
 /** Daily quest: one suggested exercise per day with a rep target based on the player's history. */
 export const QUEST = {
-  /** How far back the history is read to pick the target. */
-  historyDays: 28,
+  /** How far back the history is read to pick the target (a long break must not reset the player to beginner). */
+  historyDays: 365,
   /** First time doing the exercise: target per tier (reps, or seconds for holds). */
   startTarget: {
     beginner: { reps: 12, seconds: 30 },
@@ -186,6 +186,13 @@ export const QUEST = {
   /** Not done for this many days or more: restart a bit lower (× detrainFactor). */
   detrainDays: 10,
   detrainFactor: 0.8,
+  /** Not done for this many days or more: restart lower still (× longDetrainFactor). */
+  longDetrainDays: 30,
+  longDetrainFactor: 0.6,
+  /** A set counts as a real set when it reaches this share of the day's best set (leftover 1-rep sets are ignored). */
+  realSetRatio: 0.5,
+  /** Never more sets than this, even if the player did more last time. */
+  maxSets: 6,
   /** Muscles still tired (best multiplier < 1): lighter day (× tiredFactor). */
   tiredFactor: 0.7,
   minTarget: { reps: 3, seconds: 10 },
@@ -199,6 +206,90 @@ export const QUEST = {
   /** Bonus gold = max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)). */
   goldPerMonsterHp: 1.5,
   minGold: 10,
+} as const;
+
+/**
+ * Progression chains: each exercise leads to a harder variation of the same movement.
+ * When the best set of an exercise reaches TIER_UP, the next one is suggested.
+ */
+export const PROGRESSIONS: readonly (readonly ExerciseId[])[] = [
+  ['wall_pushup', 'knee_pushup', 'pushup', 'diamond_pushup'],
+  ['pike_pushup', 'elevated_pike_pushup'],
+  ['chair_dip', 'bench_dip', 'dip'],
+  ['door_row', 'inverted_row', 'chinup', 'pullup'],
+  ['chair_squat', 'squat', 'bulgarian_split_squat', 'pistol_squat'],
+  ['glute_bridge', 'single_leg_bridge', 'nordic_curl'],
+  ['calf_raise', 'single_leg_calf_raise'],
+  ['crunch', 'leg_raise', 'hanging_leg_raise'],
+  ['knee_plank', 'plank', 'hollow_hold'],
+];
+
+/** Best set needed before the next variation is suggested (reps, or seconds for holds). */
+export const TIER_UP = { reps: 15, seconds: 60 } as const;
+
+/**
+ * Skills: long-term goals made of steps (a best set to reach on an exercise).
+ * Progress comes from the personal records, so nothing extra is saved.
+ */
+export interface SkillConfig {
+  id: string;
+  name: string;
+  icon: string;
+  steps: readonly { exerciseId: ExerciseId; amount: number }[];
+}
+export const SKILLS: readonly SkillConfig[] = [
+  { id: 'pushup_master', name: 'Push-up Master', icon: '🛡️', steps: [
+    { exerciseId: 'knee_pushup', amount: 10 }, { exerciseId: 'pushup', amount: 10 }, { exerciseId: 'pushup', amount: 25 }, { exerciseId: 'pushup', amount: 50 },
+  ] },
+  { id: 'first_pullup', name: 'First Pull-up', icon: '🧗', steps: [
+    { exerciseId: 'door_row', amount: 15 }, { exerciseId: 'inverted_row', amount: 10 }, { exerciseId: 'chinup', amount: 1 }, { exerciseId: 'pullup', amount: 1 }, { exerciseId: 'pullup', amount: 10 },
+  ] },
+  { id: 'pistol_squat', name: 'Pistol Squat', icon: '🦵', steps: [
+    { exerciseId: 'chair_squat', amount: 20 }, { exerciseId: 'squat', amount: 30 }, { exerciseId: 'bulgarian_split_squat', amount: 10 }, { exerciseId: 'pistol_squat', amount: 1 }, { exerciseId: 'pistol_squat', amount: 5 },
+  ] },
+  { id: 'iron_plank', name: 'Iron Plank', icon: '🧱', steps: [
+    { exerciseId: 'knee_plank', amount: 60 }, { exerciseId: 'plank', amount: 60 }, { exerciseId: 'plank', amount: 120 }, { exerciseId: 'hollow_hold', amount: 60 },
+  ] },
+  { id: 'dip_power', name: 'Dip Power', icon: '⚔️', steps: [
+    { exerciseId: 'chair_dip', amount: 15 }, { exerciseId: 'bench_dip', amount: 15 }, { exerciseId: 'dip', amount: 1 }, { exerciseId: 'dip', amount: 10 },
+  ] },
+  { id: 'hanging_core', name: 'Hanging Core', icon: '🪝', steps: [
+    { exerciseId: 'crunch', amount: 25 }, { exerciseId: 'leg_raise', amount: 15 }, { exerciseId: 'hanging_leg_raise', amount: 1 }, { exerciseId: 'hanging_leg_raise', amount: 10 },
+  ] },
+  { id: 'nordic_curl', name: 'Nordic Curl', icon: '🔥', steps: [
+    { exerciseId: 'glute_bridge', amount: 20 }, { exerciseId: 'single_leg_bridge', amount: 15 }, { exerciseId: 'nordic_curl', amount: 1 }, { exerciseId: 'nordic_curl', amount: 5 },
+  ] },
+  { id: 'handstand_path', name: 'Handstand Path', icon: '🤸', steps: [
+    { exerciseId: 'pike_pushup', amount: 10 }, { exerciseId: 'elevated_pike_pushup', amount: 5 }, { exerciseId: 'elevated_pike_pushup', amount: 15 },
+  ] },
+];
+
+/** Session goal picked at the start of the day: scales the daily quest target (and its XP reward). */
+export const SESSION_GOAL = {
+  short: 0.5,
+  normal: 1,
+  big: 1.3,
+} as const;
+
+/** Back after a break: lighter quest and bonus gold, instead of a broken streak. */
+export const COMEBACK = {
+  /** Days since the last workout. */
+  minDaysAway: 3,
+  targetFactor: 0.8,
+  goldFactor: 1.5,
+} as const;
+
+/**
+ * Weekly goal: train on N different days per week (the player picks N). Meeting it pays gold and extends
+ * the weekly streak (weeks in a row). Rest days are part of the plan, unlike a daily streak.
+ * Reward = max(minGold, round(HP of the current level's first monster × goldPerMonsterHp)).
+ */
+export const WEEKLY_GOAL = {
+  defaultDays: 3,
+  minDays: 1,
+  maxDays: 7,
+  goldPerMonsterHp: 5,
+  minGold: 50,
 } as const;
 
 /** Combo: hits with less than windowMs between them chain; every hitsPerStep hits add bonusPerStep damage (capped). */
@@ -254,7 +345,7 @@ export const RECORDS = {
   minGold: 10,
 } as const;
 
-/** Streak freeze: protects the daily-quest streak for one missed day. Price scales with the enemy level. */
+/** Streak freeze: protects the weekly-goal streak for one missed week. Price scales with the enemy level. */
 export const STREAK_FREEZE = {
   maxOwned: 2,
   goldPerMonsterHp: 3,

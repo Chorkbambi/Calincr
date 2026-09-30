@@ -43,7 +43,27 @@ describe('questTarget', () => {
   it('builds on the last session with a small progression', () => {
     const history = [set('2026-03-01', 'pushup', 30), set('2026-03-07', 'pushup', 12), set('2026-03-07', 'pushup', 8)];
     // Last session: 20 reps on March 7 → 20 + 10% = 22.
-    expect(questTarget('pushup', history, TODAY, 1)).toEqual({ target: 22, lastDone: { day: '2026-03-07', amount: 20 } });
+    // 12 + 8 are both real sets (8 ≥ half of 12): the quest keeps 2 sets.
+    expect(questTarget('pushup', history, TODAY, 1)).toEqual({ target: 22, lastDone: { day: '2026-03-07', amount: 20 }, preferredSets: 2 });
+  });
+
+  it('remembers old sessions and restarts lower after a long break, never from scratch', () => {
+    // 3 × 15 squats two months ago: 45 × 0.6 = 27, not the beginner start of 15.
+    const history = [set('2026-01-10', 'squat', 15), set('2026-01-10', 'squat', 15), set('2026-01-10', 'squat', 15)];
+    expect(questTarget('squat', history, TODAY, 1)).toMatchObject({ target: 27, preferredSets: 3 });
+  });
+
+  it('estimates a never-done exercise from a sibling of the same muscle group', () => {
+    // 3 × 15 squats (8 XP/rep) → lunges (9 XP/rep): 45 × 8 / 9 = 40, in 3 sets.
+    const history = [set('2026-03-08', 'squat', 15), set('2026-03-08', 'squat', 15), set('2026-03-08', 'squat', 15)];
+    expect(questTarget('lunge', history, TODAY, 1)).toEqual({ target: 40, lastDone: null, preferredSets: 3, estimatedFrom: 'squat' });
+    // Push-ups are another group: no estimate from squats.
+    expect(questTarget('pushup', history, TODAY, 1).estimatedFrom).toBeUndefined();
+  });
+
+  it('ignores tiny leftover sets when counting sets', () => {
+    const history = [set('2026-03-08', 'pushup', 15), set('2026-03-08', 'pushup', 15), set('2026-03-08', 'pushup', 1)];
+    expect(questTarget('pushup', history, TODAY, 1).preferredSets).toBe(2);
   });
 
   it('adds at least the minimum step', () => {
@@ -66,6 +86,9 @@ describe('splitIntoSets', () => {
   it('splits the target into a few sets', () => {
     expect(splitIntoSets(30, 'reps')).toEqual({ sets: 4, perSet: 8 });
     expect(splitIntoSets(15, 'reps')).toEqual({ sets: 3, perSet: 5 });
+    // The player's own number of sets wins: 3 × 15 last time → 3 × 17, not 4 × 13.
+    expect(splitIntoSets(50, 'reps', 3)).toEqual({ sets: 3, perSet: 17 });
+    expect(splitIntoSets(50, 'reps', 12)).toEqual({ sets: 6, perSet: 9 });
     expect(splitIntoSets(5, 'reps')).toEqual({ sets: 1, perSet: 5 });
     expect(splitIntoSets(45, 'seconds')).toEqual({ sets: 2, perSet: 23 });
   });
@@ -79,7 +102,8 @@ describe('createDailyQuest', () => {
     expect(quest.exerciseId).toBe('single_leg_bridge');
     expect(quest.target).toBe(11);
     expect(quest.effectiveMultiplier).toBeCloseTo(1.5);
-    expect(quest).toMatchObject({ day: TODAY, progress: 0, completed: false, streak: 0, sets: 2, perSet: 6 });
+    // One set of 10 last time: the quest keeps one set.
+    expect(quest).toMatchObject({ day: TODAY, progress: 0, completed: false, streak: 0, sets: 1, perSet: 11 });
     expect(quest.rewardXp).toBe(Math.round(11 * 9 * 0.5));
     expect(quest.rewardGold).toBe(30);
   });
