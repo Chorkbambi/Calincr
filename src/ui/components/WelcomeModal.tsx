@@ -32,7 +32,7 @@ const TUTORIAL: { icon: string; title: string; lines: string[] }[] = [
     title: 'Your daily quest',
     lines: [
       'Each day the app suggests one exercise, with a goal based on your last session.',
-      'Complete it for bonus XP and gold, and keep your streak going.',
+      'Complete it for bonus XP and gold. Set a weekly goal (e.g. 3 days) and keep your streak of weeks going.',
       'Spend gold in the Shop on better swords. Unlock achievements for extra gold.',
     ],
   },

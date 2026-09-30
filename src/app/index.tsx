@@ -18,6 +18,7 @@ import {
   isBossStage,
   isExerciseId,
   MUSCLE_NAMES,
+  nextVariation,
   recommendExercises,
   sortForBattle,
   STYLE_MUSCLES,
@@ -40,7 +41,10 @@ import { LevelUpBanner, type LevelUpEvent } from '../ui/components/LevelUpBanner
 import { ComboBadge } from '../ui/components/ComboBadge';
 import { RestTimer } from '../ui/components/RestTimer';
 import { VoiceToggle } from '../ui/components/VoiceToggle';
+import { RecordProgress } from '../ui/components/RecordProgress';
+import { SessionGoalCard } from '../ui/components/SessionGoalCard';
 import { WeeklyBossBar } from '../ui/components/WeeklyBossBar';
+import { WeeklyGoalCard } from '../ui/components/WeeklyGoalCard';
 import { formatAmount, formatCompact, formatDayShort, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
@@ -72,6 +76,10 @@ function describe(outcome: WorkResult): string | null {
     );
   }
   if (outcome.weeklyBossGold !== null) parts.push(`👑 Weekly Titan defeated! +${formatNumber(outcome.weeklyBossGold)} gold`);
+  if (outcome.weeklyGoalGold !== null) parts.push(`📅 Weekly goal met! +${formatNumber(outcome.weeklyGoalGold)} gold`);
+  for (const step of outcome.skillSteps) {
+    parts.push(`${step.icon} Skill ${step.name}: step ${step.done}/${step.total}${step.done === step.total ? ' — mastered!' : ''}`);
+  }
   for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
   for (const a of outcome.achievements) parts.push(`🏆 Achievement: ${a.name} · +${formatNumber(a.gold)} gold`);
   return parts.length > 0 ? parts.slice(-4).join('\n') : null;
@@ -85,6 +93,7 @@ export default function CombatScreen() {
     openSet,
     work,
     refreshQuest,
+    setSessionGoal,
     closeSet,
     updateSettings,
     calibrations,
@@ -143,6 +152,16 @@ export default function CombatScreen() {
         voice={settings.voiceCount}
       />
     ) : null;
+  // Best set to beat during this set: the record as it was when the set started.
+  const setBest =
+    openSet && openSet.exerciseId === exerciseId
+      ? state.recordRun?.setId === openSet.id
+        ? state.recordRun.best
+        : (state.records[exerciseId] ?? 0)
+      : 0;
+  const recordProgress = openSet && openSet.exerciseId === exerciseId ? (
+    <RecordProgress exerciseId={exerciseId} amount={openSet.amount} best={setBest} />
+  ) : null;
   const hudEnemy = frame.enemy ?? state.enemy;
   const style = exerciseStyle(exercise);
   const weakness = (level: number, stage: number) => {
@@ -171,6 +190,7 @@ export default function CombatScreen() {
       {weakness(hudEnemy.level, hudEnemy.stage)}
       <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
       {message ? <Text style={styles.message}>{message}</Text> : null}
+      {recordProgress}
       {restTimer}
       <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
     </View>
@@ -275,6 +295,29 @@ export default function CombatScreen() {
     ? `Last time: ${formatAmount(exerciseId, last.amount)} · ${last.day === today ? 'today' : formatDayShort(last.day)}`
     : 'Never done yet — take it easy the first time.';
 
+  // Best set good enough: suggest the harder variation (switching difficulty if it isn't offered yet).
+  const harder = nextVariation(exerciseId, state.records);
+  const harderOffered = harder !== null && exercises.some((e) => e.id === harder);
+  const tierUp = harder ? (
+    <View style={styles.tierUp}>
+      <Text style={styles.tierUpText}>
+        💪 {formatAmount(exerciseId, state.records[exerciseId] ?? 0)} in one set: ready for {getExercise(harder).name}?
+      </Text>
+      <Pressable
+        accessibilityRole="button"
+        hitSlop={8}
+        onPress={() => {
+          if (!harderOffered) updateSettings({ difficulty: getExercise(harder).tier });
+          selectExercise(harder);
+        }}
+      >
+        <Text style={styles.howTo}>{harderOffered ? 'Try it →' : `Unlock (${getExercise(harder).tier} mode) →`}</Text>
+      </Pressable>
+    </View>
+  ) : null;
+  const showSessionGoal =
+    settings.askSessionGoal && quest !== null && quest.day === today && quest.goal === null && quest.progress === 0 && !quest.completed;
+
   const enemy = frame.enemy ?? state.enemy;
   const boss = isBossStage(enemy.stage);
   const zone = zoneForLevel(enemy.level);
@@ -316,6 +359,10 @@ export default function CombatScreen() {
 
           <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
           {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          {showSessionGoal && quest ? (
+            <SessionGoalCard quest={quest} onPick={setSessionGoal} onNeverAsk={() => updateSettings({ askSessionGoal: false })} />
+          ) : null}
 
           {suggestedStyle ? (
             <Text style={styles.suggestion}>
@@ -369,6 +416,8 @@ export default function CombatScreen() {
             {state.records[exerciseId] ? ` · Record: ${formatAmount(exerciseId, state.records[exerciseId]!)} in one set` : ''}
           </Text>
 
+          {tierUp}
+
           {restTimer}
           {controls}
 
@@ -378,6 +427,7 @@ export default function CombatScreen() {
                 Current set: <Text style={styles.setAmount}>{formatAmount(openSet.exerciseId, openSet.amount)}</Text> ·{' '}
                 {formatNumber(openSet.damage)} damage
               </Text>
+              {recordProgress}
               <GoldButton
                 label="Finish set"
                 variant="stone"
@@ -394,6 +444,7 @@ export default function CombatScreen() {
           )}
           <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
 
+          <WeeklyGoalCard state={state} today={today} />
           <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
           <WeeklyBossBar state={state} today={today} />
         </ScrollView>
@@ -431,6 +482,17 @@ const styles = StyleSheet.create({
   },
   setAmount: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 18 },
   center: { textAlign: 'center' },
+  tierUp: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    padding: spacing.sm,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.rested,
+  },
+  tierUpText: { color: colors.text, fontSize: 13, flex: 1 },
   message: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 15, textAlign: 'center' },
   chips: { gap: spacing.sm, paddingVertical: spacing.xs },
   chip: {

@@ -42,3 +42,13 @@ describe('monthSummary', () => {
     expect(monthSummary([], '2026-09')).toMatchObject({ activeDays: 0, sets: 0, topExercise: null, records: [] });
   });
 });
+
+import { bestSetTrend } from '../stats';
+
+describe('bestSetTrend', () => {
+  const week = (best: number) => ({ weekStart: '2026-09-07', volume: best, best });
+  it('compares the first and last trained weeks', () => {
+    expect(bestSetTrend([week(0), week(12), week(0), week(18)])).toEqual({ first: 12, last: 18, change: 0.5 });
+    expect(bestSetTrend([week(0), week(12)])).toBeNull();
+  });
+});

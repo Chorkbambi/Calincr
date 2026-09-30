@@ -90,9 +90,12 @@ src/
     records.ts       personal records (best set per exercise)
     settings.ts      settings (camera/manual mode, difficulty, reps per press…) + validation
     sets.ts          aggregation of recorded sets
-    stats.ts         calendar: volume, intensity, weekly/monthly totals, weekly progress of an exercise
+    stats.ts         calendar: volume, intensity, weekly/monthly totals, weekly progress, best-set trend, month summary
     recommend.ts     exercises ranked by rest bonus
-    quest.ts         daily quest: exercise, history-based target, reward, streak, streak freezes
+    quest.ts         daily quest: exercise, history-based target, reward, session goal, comeback
+    weeklyGoal.ts    weekly goal (training days per week), weekly streak, streak freezes
+    skills.ts        progression chains (next harder variation) and long-term skills, from records
+    voice.ts         voice count phrases
     achievements.ts  achievements (progress, gold reward per tier)
     recap.ts         last week's recap
     backup.ts        creation / strict validation of a backup file
@@ -152,10 +155,28 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
   group have a green border, with a "💡 Suggested today" line above the list.
 - **Daily quest** (Fight screen, `src/game/quest.ts`): ONE exercise suggested per day (the app motivates, it doesn't
   coach): the first suggestion (least recently trained group, then the most rested muscles of that group).
-  Target = total of the last session of that exercise + 10% (at least +1 rep / +5 s), a starting value per tier
-  if never done, × 0.8 after 10 days without, × 0.7 if the muscles are tired; split into sets (e.g. 3 × 8).
+  Target = total of the last session of that exercise + 10% (at least +1 rep / +5 s), read over a year of history
+  (× 0.8 after 10 days without, × 0.6 after 30), × 0.7 if the muscles are tired. Never done: estimated from the most
+  recent sibling exercise (same group, same unit) scaled by base XP, else a starting value per tier. The quest keeps
+  the player's own number of sets (sets under half the day's best set don't count): 3 × 15 → 3 × 17.
   Reward on completion: bonus XP (target × base XP × 0.5, no multiplier) + gold (1.5 × HP of the level's first
-  monster). Day streak. Generated once a day, saved (kv `daily_quest`).
+  monster). Generated once a day, saved (kv `daily_quest`).
+- **Session goal** (`askSessionGoal` setting, on by default): before the first rep of the day's quest, "How much time
+  today?" short ×0.5 / normal / big ×1.3 (`SESSION_GOAL`, `applySessionGoal`), with Skip and "Don't ask again".
+- **Comeback** (`COMEBACK`): 3+ days since the last workout → quest × 0.8 (unless already lowered for a long pause)
+  and × 1.5 quest gold, "Welcome back" line.
+- **Weekly goal** (`WEEKLY_GOAL`, `weeklyGoal.ts`) replaces the daily streak (which fought the rest multipliers): train
+  N different days a week (1-7, default 3, Settings). Meeting it pays gold and adds a week to the streak; rest days
+  never break it. A missed week resets the streak unless streak freezes cover it (one per week). Achievements
+  "Unbreakable"/"Unstoppable" = 4 / 12 weeks in a row. `DailyQuest.streak`/`freezesUsed` are kept only for old saves.
+- **Record in sight** (`RecordProgress`): during a set, bar towards the best set as it was when the set started
+  ("Record in 3 reps!", "New record!"), also in the camera HUD.
+- **Harder variation** (`PROGRESSIONS`, `TIER_UP`, `nextVariation`): best set ≥ 15 reps / 60 s → "ready for X?"
+  with Try it (or unlock the difficulty mode that offers it).
+- **Skills** (`SKILLS`, Hero screen): 8 long-term goals, each a chain of best sets to reach (first pull-up, pistol
+  squat…). Computed from records, nothing extra saved; a message when a step is reached.
+- **Month summary** (Calendar, `monthSummary`): training days, sets, reps, holds, favourite exercise, records beaten
+  that month (against earlier months), shareable card. The progress panel shows the best-set trend over 12 weeks.
 - **Manual mode**: the Rep button adds "reps per press" (1 to 50). The Undo button undoes nothing: it shows
   "Made a mistake? Too bad — you'll have to make up for it!" (on purpose).
 - **Camera mode**: manual correction possible (+1 / +5 reps, +5 / +15 s for holds) if the camera misses reps;
@@ -172,7 +193,7 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - **Records**: best set per exercise; beating it (not the first time) pays gold once per set (`RECORDS`).
   Records are seeded from the history on load (`seedRecords`).
 - **Streak Freeze** (`STREAK_FREEZE`): 2 max, price = HP of the first monster × 3; used automatically (one per
-  missed day) if the quest streak is > 0 (`createDailyQuest` → `freezesUsed`, `spendStreakFreezes`).
+  missed week) when the weekly streak is > 0 (`rollWeeklyGoal`).
 - **Gear** (`GEAR`): one armor (+gold) and one ring (combo window, combo cap, weakness bonus).
   **Cosmetics** (`COSMETICS`): sword glow and damage number colour, purely visual.
 - **Achievements** (`achievements.ts`): 20 achievements, gold reward = HP of the level's first monster × 2 / 5 / 12
@@ -189,8 +210,9 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
   expo-speech says the set's rep total after each rep (holds: every `VOICE.holdStepSeconds`) and "Rest over" at the end
   of the rest timer. Nothing else is spoken. Phrases in `src/game/voice.ts`.
 - **Level-up banner** (`LevelUpBanner`): "LEVEL UP!" over the arena with the muscles gained and the new damage per hit.
-- **Fight screen order**: enemy (HP + damage per hit on one line), arena, exercise list, controls, current set, voice
-  toggle, daily quest (one line once completed), Weekly Titan.
+- **Fight screen order**: enemy (HP + damage per hit on one line), arena, session goal (once a day), exercise list,
+  harder-variation hint, controls, current set (+ record bar), voice toggle, weekly goal, daily quest (one line once
+  completed), Weekly Titan.
 - **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 
 ## Conventions

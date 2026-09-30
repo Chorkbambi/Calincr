@@ -18,6 +18,7 @@ import {
 } from '../game';
 import { useGame } from '../state/GameProvider';
 import { ExerciseProgressPanel } from '../ui/components/ExerciseProgressPanel';
+import { MonthSummaryPanel } from '../ui/components/MonthSummaryPanel';
 import { Panel } from '../ui/components/Panel';
 import {
   formatAmount,
@@ -166,6 +167,8 @@ export default function CalendarScreen() {
             </View>
           ) : null}
         </Panel>
+
+        <MonthSummaryPanel year={month.year} month={month.month} lastDay={lastDay} />
 
         <Panel title={`${MONTH_NAMES[month.month - 1]} total`}>
           <TotalsList totals={totalsByExercise(monthSets)} />

@@ -27,6 +27,7 @@ import { BodyMap } from '../ui/components/BodyMap';
 import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
 import { Panel } from '../ui/components/Panel';
 import { ProgressBar } from '../ui/components/ProgressBar';
+import { SkillsPanel } from '../ui/components/SkillsPanel';
 import { SwordFigure } from '../ui/components/SwordFigure';
 import { formatDate, formatMultiplier, formatNumber, STATUS_LABELS } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
@@ -142,6 +143,8 @@ export default function CharacterScreen() {
             ×1.5. Training the same muscle several days in a row tires it out.
           </Text>
         </Panel>
+
+        <SkillsPanel state={state} />
 
         <AchievementsPanel state={state} />
 

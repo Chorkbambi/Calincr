@@ -147,3 +147,12 @@ export function monthSummary(sets: readonly SetRecord[], month: string): MonthSu
   const top = [...volume.entries()].sort((a, b) => b[1] - a[1])[0];
   return { month, activeDays: days.size, sets: count, reps, holdSeconds, topExercise: top ? top[0] : null, records };
 }
+
+/** Best-set trend over the shown weeks: first and last trained weeks (null with fewer than 2 trained weeks). */
+export function bestSetTrend(weeks: readonly WeekProgress[]): { first: number; last: number; change: number } | null {
+  const trained = weeks.filter((w) => w.best > 0);
+  if (trained.length < 2) return null;
+  const first = trained[0]!.best;
+  const last = trained[trained.length - 1]!.best;
+  return { first, last, change: (last - first) / first };
+}
