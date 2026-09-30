@@ -168,3 +168,18 @@ Settings → **Export backup**: creates a `calincr-backup-YYYY-MM-DD.json` file 
 The code is public: anyone can read it and check that the app sends nothing. No secrets are stored in the
 repository (the Android signing key is kept by EAS, not here). For the Play Store, the privacy policy URL can be
 the one of [`PRIVACY.md`](https://github.com/Chorkbambi/Calincr/blob/main/PRIVACY.md).
+
+## Licenses
+
+Every runtime dependency uses a permissive license (MIT, ISC, BSD, Apache-2.0, BlueOak, 0BSD, CC0, Unlicense) that
+allows commercial use. Bundled files: MediaPipe tasks-vision and the Pose Landmarker model (Apache-2.0, see
+`assets/mediapipe/NOTICE.txt`), the Cinzel font (SIL Open Font License 1.1: can be embedded in an app, not sold
+on its own).
+
+MIT/BSD/Apache require shipping their copyright and license notices: Settings → About → **Open-source licenses**
+lists every package of the app's JavaScript bundle, every direct dependency and the MediaPipe files, with their
+license text. The list is generated; after adding, removing or updating a dependency run:
+
+```bash
+node scripts/generate-licenses.cjs   # rewrites src/ui/content/licenses.generated.ts
+```

@@ -10,6 +10,7 @@ import { formatClock, restTimerLabel } from '../ui/format';
 import { BackupPanel } from '../ui/components/BackupPanel';
 import { GoldButton } from '../ui/components/GoldButton';
 import { Panel } from '../ui/components/Panel';
+import { LicensesModal } from '../ui/components/LicensesModal';
 import { PrivacyPolicyModal } from '../ui/components/PrivacyPolicyModal';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 
@@ -104,6 +105,7 @@ const DIFFICULTIES: { value: Difficulty; label: string; description: string }[] 
 export default function SettingsScreen() {
   const { settings, updateSettings, resetProgress } = useGame();
   const [policyOpen, setPolicyOpen] = useState(false);
+  const [licensesOpen, setLicensesOpen] = useState(false);
 
   const { reminder } = settings;
 
@@ -246,9 +248,11 @@ export default function SettingsScreen() {
             in a row earns less.
           </Text>
           <Text style={styles.muted}>Version {Constants.expoConfig?.version ?? '1.0.0'}</Text>
+          <GoldButton label="Open-source licenses" variant="stone" onPress={() => setLicensesOpen(true)} />
         </Panel>
       </ScrollView>
       <PrivacyPolicyModal visible={policyOpen} onClose={() => setPolicyOpen(false)} />
+      <LicensesModal visible={licensesOpen} onClose={() => setLicensesOpen(false)} />
     </SafeAreaView>
   );
 }

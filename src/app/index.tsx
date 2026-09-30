@@ -12,14 +12,16 @@ import {
   exerciseStyle,
   STYLE_NAMES,
   WEAKNESS,
-  exercisesForDifficulty,
   getExercise,
   hitDamage,
   isBossStage,
   isExerciseId,
   MUSCLE_NAMES,
-  sortByFavorites,
+  recommendExercises,
+  sortForBattle,
+  STYLE_MUSCLES,
   toDayKey,
+  todayFocus,
   WEAPONS,
   zoneForLevel,
   type ExerciseId,
@@ -85,16 +87,27 @@ export default function CombatScreen() {
   } = useGame();
   const params = useLocalSearchParams<{ exercise?: string }>();
   const focused = useIsFocused();
-  const exercises = useMemo(
-    () => sortByFavorites(exercisesForDifficulty(settings.difficulty), settings.favorites),
-    [settings.difficulty, settings.favorites],
-  );
+  const { frame, enqueue } = useHitQueue();
   const [lastDone, setLastDone] = useState<Record<string, { day: string; amount: number }>>({});
+  const today = toDayKey(new Date());
+  // One muscle group per day: the group already trained today stays suggested, otherwise the least recently trained.
+  const focus = useMemo(() => todayFocus(lastDone, today), [lastDone, today]);
+  const ranking = useMemo(
+    () => recommendExercises(state, today, settings.difficulty, focus),
+    [state, today, settings.difficulty, focus],
+  );
+  const suggestedStyle = ranking[0]?.style ?? null;
+  const shownEnemy = frame.enemy ?? state.enemy;
+  const currentWeakness = enemyWeakness(shownEnemy.level, shownEnemy.stage);
+  // Favourites, then the exercises dealing the most damage to this enemy (its weakness), then the suggestions.
+  const exercises = useMemo(
+    () => sortForBattle(ranking, currentWeakness, settings.favorites).map(getExercise),
+    [ranking, currentWeakness, settings.favorites],
+  );
   const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   const [exerciseId, setExerciseId] = useState<ExerciseId>(() => (exercises[0]?.id as ExerciseId) ?? 'pushup');
   const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
-  const { frame, enqueue } = useHitQueue();
   const [message, setMessage] = useState<string | null>(null);
 
   /** Ends the current set and, if the player wants it, starts the rest timer. */
@@ -214,7 +227,6 @@ export default function CombatScreen() {
       favorites: isFavorite ? settings.favorites.filter((f) => f !== exerciseId) : [...settings.favorites, exerciseId],
     });
   const last = lastDone[exerciseId];
-  const today = toDayKey(new Date());
   const lastDoneText = last
     ? `Last time: ${formatAmount(exerciseId, last.amount)} · ${last.day === today ? 'today' : formatDayShort(last.day)}`
     : 'Never done yet — take it easy the first time.';
@@ -261,21 +273,37 @@ export default function CombatScreen() {
 
           <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
 
+          {suggestedStyle ? (
+            <Text style={styles.suggestion}>
+              💡 {focus === suggestedStyle ? 'Keep going with your' : 'Suggested today:'} {STYLE_NAMES[suggestedStyle]} day
+              <Text style={styles.muted}>
+                {' '}
+                ({(STYLE_MUSCLES[suggestedStyle] as readonly (keyof typeof MUSCLE_NAMES)[]).map((m) => MUSCLE_NAMES[m]).join(', ')}
+                {focus === suggestedStyle ? '' : ' — least trained lately'})
+              </Text>
+            </Text>
+          ) : null}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
             {exercises.map((e) => {
               const selected = e.id === exerciseId;
               const pinned = settings.favorites.includes(e.id as ExerciseId);
+              const suggested = exerciseStyle(e) === suggestedStyle;
               return (
                 <Pressable
                   key={e.id}
                   onPress={() => selectExercise(e.id as ExerciseId)}
                   accessibilityRole="button"
                   accessibilityState={{ selected }}
-                  style={[styles.chip, selected && styles.chipSelected, settings.largeButtons && styles.chipLarge]}
+                  style={[
+                    styles.chip,
+                    suggested && styles.chipSuggested,
+                    selected && styles.chipSelected,
+                    settings.largeButtons && styles.chipLarge,
+                  ]}
                 >
                   <Text style={[styles.chipText, selected && styles.chipTextSelected, settings.largeButtons && styles.chipTextLarge]}>
                     {pinned ? '★ ' : ''}
-                    {exerciseStyle(e) === enemyWeakness(enemy.level, enemy.stage) ? '⚡ ' : ''}
+                    {exerciseStyle(e) === currentWeakness ? '⚡ ' : ''}
                     {e.name}
                   </Text>
                 </Pressable>
@@ -360,6 +388,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
+  chipSuggested: { borderColor: colors.rested },
+  suggestion: { color: colors.text, fontSize: 14 },
   chipSelected: { backgroundColor: colors.parchment, borderColor: colors.gold },
   chipText: { color: colors.text, fontSize: 14 },
   chipTextSelected: { color: colors.ink },
