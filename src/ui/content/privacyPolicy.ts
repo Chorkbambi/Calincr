@@ -1,5 +1,5 @@
 /** Privacy policy shown in Settings (same text as PRIVACY.md at the root of the project). */
-export const PRIVACY_POLICY_UPDATED = '2026-09-30';
+export const PRIVACY_POLICY_UPDATED = '2026-10-01';
 
 export const PRIVACY_POLICY: { title: string; body: string[] }[] = [
   {
@@ -31,6 +31,14 @@ export const PRIVACY_POLICY: { title: string; body: string[] }[] = [
     ],
   },
   {
+    title: 'Security and retention',
+    body: [
+      "Your data is kept in the app's private storage on your phone, which other apps cannot read. It stays there until you erase it (Settings → Reset progress) or uninstall the app.",
+      "The developer never receives a copy of your data, so there is nothing to delete on any server.",
+      "A backup file you export is a plain file: keep it somewhere private.",
+    ],
+  },
+  {
     title: 'Daily reminder',
     body: [
       'If you turn on the daily reminder, the notification is scheduled by your phone itself. No server and no push service are involved, and nothing is sent. Turn it off in Settings at any time.',
@@ -56,11 +64,27 @@ export const PRIVACY_POLICY: { title: string; body: string[] }[] = [
     ],
   },
   {
+    title: 'Permissions',
+    body: [
+      "Camera: only to count your reps in camera mode (see above).",
+      "Notifications: only if you turn on the daily reminder.",
+      "Vibration: short feedback when you strike.",
+      "The app has no permission for your location, contacts, photos, storage or microphone. To import a backup, you pick the file yourself in your phone's file picker.",
+    ],
+  },
+  {
     title: 'Children',
     body: ['The app collects no data from anyone, including children.'],
   },
   {
     title: 'Changes',
     body: ['If this policy ever changes, the new version will be shown in the app with its date.'],
+  },
+  {
+    title: 'Contact',
+    body: [
+      "Calincr is an independent app made by Chorkbambi (https://github.com/Chorkbambi).",
+      "Questions or requests about privacy: open an issue at https://github.com/Chorkbambi/Calincr/issues, or write to the developer email shown on the app's Google Play page.",
+    ],
   },
 ];
