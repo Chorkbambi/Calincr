@@ -1,6 +1,6 @@
 # Calincr — Privacy policy
 
-Last updated: 2026-09-30
+Last updated: 2026-10-01
 
 ## In short
 
@@ -24,6 +24,12 @@ Last updated: 2026-09-30
 - This data never leaves your phone unless you export a backup or share a picture yourself. The developer has no access to it.
 - You can erase it at any time in Settings → Reset progress, or by uninstalling the app.
 
+## Security and retention
+
+- Your data is kept in the app's private storage on your phone, which other apps cannot read. It stays there until you erase it (Settings → Reset progress) or uninstall the app.
+- The developer never receives a copy of your data, so there is nothing to delete on any server.
+- A backup file you export is a plain file: keep it somewhere private.
+
 ## Daily reminder
 
 - If you turn on the daily reminder, the notification is scheduled by your phone itself. No server and no push service are involved, and nothing is sent. Turn it off in Settings at any time.
@@ -41,6 +47,13 @@ Last updated: 2026-09-30
 
 - “Share” on the weekly recap or an achievement creates a picture with game numbers only (reps, levels, monsters) and opens your phone's share menu. It never contains anything from the camera. Nothing is sent unless you pick an app to share it with.
 
+## Permissions
+
+- Camera: only to count your reps in camera mode (see above).
+- Notifications: only if you turn on the daily reminder.
+- Vibration: short feedback when you strike.
+- The app has no permission for your location, contacts, photos, storage or microphone. To import a backup, you pick the file yourself in your phone's file picker.
+
 ## Children
 
 - The app collects no data from anyone, including children.
@@ -48,3 +61,8 @@ Last updated: 2026-09-30
 ## Changes
 
 - If this policy ever changes, the new version will be shown in the app with its date.
+
+## Contact
+
+- Calincr is an independent app made by Chorkbambi (https://github.com/Chorkbambi).
+- Questions or requests about privacy: open an issue at https://github.com/Chorkbambi/Calincr/issues, or write to the developer email shown on the app's Google Play page.
