@@ -1,12 +1,10 @@
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { EXERCISE_GUIDES, getExercise, MUSCLE_NAMES, muscleWeights, type ExerciseId } from '../../game';
+import { DIFFICULTY_NAMES, EXERCISE_GUIDES, getExercise, MUSCLE_NAMES, muscleWeights, type ExerciseId } from '../../game';
 import { describeBodyParts, requiredBodyParts } from '../../pose/visibility';
 import { colors, fonts, radius, spacing } from '../theme';
 import { ExerciseAnimationView } from './ExerciseAnimationView';
 import { GoldButton } from './GoldButton';
-
-const TIER_LABELS = { beginner: 'Beginner', normal: 'Normal', advanced: 'Advanced' } as const;
 
 /** "How to do it" sheet for an exercise. */
 export function ExerciseGuideModal({ exerciseId, onClose }: { exerciseId: ExerciseId | null; onClose: () => void }) {
@@ -20,7 +18,7 @@ export function ExerciseGuideModal({ exerciseId, onClose }: { exerciseId: Exerci
           <ScrollView contentContainerStyle={styles.content}>
             <Text style={styles.title}>{exercise.name}</Text>
             <Text style={styles.meta}>
-              {TIER_LABELS[exercise.tier]} ·{' '}
+              {DIFFICULTY_NAMES[exercise.tier]} ·{' '}
               {muscleWeights(exercise)
                 .map(([m, w]) => `${MUSCLE_NAMES[m]} ${Math.round(w * 100)}%`)
                 .join(' · ')}

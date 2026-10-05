@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { ONBOARDING_VERSION, REST_TIMER_CHOICES, type InputMode } from '../../game';
+import { ONBOARDING_VERSION, REST_TIMER_CHOICES, type Difficulty, type InputMode } from '../../game';
 import { useGame } from '../../state/GameProvider';
+import { DIFFICULTY_CHOICES } from '../difficulty';
 import { restTimerLabel } from '../format';
 import { colors, fonts, radius, spacing } from '../theme';
 import { GoldButton } from './GoldButton';
@@ -32,7 +33,8 @@ const TUTORIAL: { icon: string; title: string; lines: string[] }[] = [
     title: 'Your daily quest',
     lines: [
       'Each day the app suggests one exercise, with a goal based on your last session.',
-      'Complete it for bonus XP and gold. Set a weekly goal (e.g. 3 days) and keep your streak of weeks going.',
+      'Pick your sets and reps before an exercise: each set ends by itself and the rest timer starts, phone on the floor.',
+      'Complete the quest for bonus XP and gold. Set a weekly goal (e.g. 3 days) and keep your streak of weeks going.',
       'Spend gold in the Shop on better swords. Unlock achievements for extra gold.',
     ],
   },
@@ -43,7 +45,7 @@ const OPTIONS: { mode: InputMode; title: string; lines: string[] }[] = [
     mode: 'camera',
     title: '📷 Camera',
     lines: [
-      'Your phone counts your reps by watching your movements.',
+      'Your phone counts your reps by watching your movements. You check the counts at the end.',
       '🔒 Analysed on your phone only: never recorded, saved or sent.',
       '📴 Works offline: the app never uses the internet.',
       '🙈 You can hide your image and see only a stick figure.',
@@ -64,16 +66,21 @@ export function WelcomeModal() {
   const [step, setStep] = useState(0);
   const [choice, setChoice] = useState<InputMode | null>(returning ? settings.inputMode : null);
   const [restTimer, setRestTimer] = useState<number | null>(null);
+  const [difficulty, setDifficulty] = useState<Difficulty | null>(returning ? settings.difficulty : null);
   const [policyOpen, setPolicyOpen] = useState(false);
 
   useEffect(() => {
     if (returning) setChoice(settings.inputMode);
   }, [returning, settings.inputMode]);
+  useEffect(() => {
+    if (returning) setDifficulty(settings.difficulty);
+  }, [returning, settings.difficulty]);
 
   const last = TUTORIAL.length;
+  const ready = choice !== null && restTimer !== null && difficulty !== null;
   const finish = () => {
-    if (choice === null || restTimer === null) return;
-    updateSettings({ inputMode: choice, restTimerSeconds: restTimer, onboardingVersion: ONBOARDING_VERSION });
+    if (choice === null || restTimer === null || difficulty === null) return;
+    updateSettings({ inputMode: choice, restTimerSeconds: restTimer, difficulty, onboardingVersion: ONBOARDING_VERSION });
   };
 
   return (
@@ -98,6 +105,26 @@ export function WelcomeModal() {
             </>
           ) : (
             <>
+              <Text style={styles.heading}>What is your level?</Text>
+              <Text style={styles.line}>It sets which exercises are offered. Every level trains all your muscles.</Text>
+              {DIFFICULTY_CHOICES.map((d) => {
+                const selected = difficulty === d.value;
+                return (
+                  <Pressable
+                    key={d.value}
+                    onPress={() => setDifficulty(d.value)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected }}
+                    style={[styles.card, selected && styles.cardSelected]}
+                  >
+                    <Text style={[styles.cardTitle, selected && styles.cardTitleSelected]}>
+                      {selected ? '◉ ' : '○ '}
+                      {d.label}
+                    </Text>
+                    <Text style={styles.line}>{d.description}</Text>
+                  </Pressable>
+                );
+              })}
               <Text style={styles.heading}>How do you want your reps to be counted?</Text>
               {OPTIONS.map((o) => {
                 const selected = choice === o.mode;
@@ -123,7 +150,8 @@ export function WelcomeModal() {
               })}
               <Text style={styles.heading}>Would you like a rest timer between sets?</Text>
               <Text style={styles.line}>
-                When you tap “Finish set”, a countdown tells you when to start the next one.
+                Before an exercise you pick its sets and reps. When a set is done, a countdown starts by itself and tells
+                you when to begin the next one.
               </Text>
               <View style={styles.timerRow}>
                 {REST_TIMER_CHOICES.map((s) => {
@@ -157,7 +185,7 @@ export function WelcomeModal() {
               big
               label="Let’s fight"
               style={styles.flex}
-              disabled={choice === null || restTimer === null}
+              disabled={!ready}
               onPress={finish}
             />
           )}
