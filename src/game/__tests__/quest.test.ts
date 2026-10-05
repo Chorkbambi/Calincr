@@ -7,6 +7,7 @@ import {
   questNeedsRefresh,
   questTarget,
   restoreQuest,
+  splitForExercise,
   splitIntoSets,
   type DailyQuest,
 } from '../quest';
@@ -35,7 +36,7 @@ function trainedOn(state: GameState, day: string, muscles: MuscleId[]): GameStat
 
 describe('questTarget', () => {
   it('starts from a default target the first time', () => {
-    expect(questTarget('pushup', [], TODAY, 1)).toEqual({ target: 15, lastDone: null });
+    expect(questTarget('pushup', [], TODAY, 1)).toEqual({ target: 20, lastDone: null });
     expect(questTarget('pullup', [], TODAY, 1).target).toBe(8);
     expect(questTarget('plank', [], TODAY, 1).target).toBe(40);
   });
@@ -67,13 +68,18 @@ describe('questTarget', () => {
   });
 
   it('adds at least the minimum step', () => {
-    expect(questTarget('pushup', [set('2026-03-08', 'pushup', 5)], TODAY, 1).target).toBe(6);
+    expect(questTarget('pushup', [set('2026-03-08', 'pushup', 10)], TODAY, 1).target).toBe(11);
     expect(questTarget('plank', [set('2026-03-08', 'plank', 30)], TODAY, 1).target).toBe(35);
   });
 
   it('restarts lower after a long break and lighter when muscles are tired', () => {
     expect(questTarget('pushup', [set('2026-02-25', 'pushup', 30)], TODAY, 1).target).toBe(24);
     expect(questTarget('pushup', [set('2026-03-08', 'pushup', 20)], TODAY, 0.7).target).toBe(15);
+  });
+
+  it('never drops below a real workout after a tiny test session', () => {
+    expect(questTarget('pushup', [set('2026-03-08', 'pushup', 2), set('2026-03-08', 'pushup', 2)], TODAY, 1).target).toBe(10);
+    expect(questTarget('pullup', [set('2026-03-08', 'pullup', 1)], TODAY, 1).target).toBe(6);
   });
 
   it('ignores today and other exercises', () => {
@@ -84,13 +90,22 @@ describe('questTarget', () => {
 
 describe('splitIntoSets', () => {
   it('splits the target into a few sets', () => {
-    expect(splitIntoSets(30, 'reps')).toEqual({ sets: 4, perSet: 8 });
+    expect(splitIntoSets(30, 'reps')).toEqual({ sets: 3, perSet: 10 });
+    expect(splitIntoSets(40, 'reps')).toEqual({ sets: 4, perSet: 10 });
     expect(splitIntoSets(15, 'reps')).toEqual({ sets: 3, perSet: 5 });
     // The player's own number of sets wins: 3 × 15 last time → 3 × 17, not 4 × 13.
     expect(splitIntoSets(50, 'reps', 3)).toEqual({ sets: 3, perSet: 17 });
     expect(splitIntoSets(50, 'reps', 12)).toEqual({ sets: 6, perSet: 9 });
     expect(splitIntoSets(5, 'reps')).toEqual({ sets: 1, perSet: 5 });
     expect(splitIntoSets(45, 'seconds')).toEqual({ sets: 2, perSet: 23 });
+  });
+
+  it('prefers fewer, bigger sets to tiny ones', () => {
+    // 3 sets wanted but only 6 reps: never 3 × 2.
+    expect(splitIntoSets(6, 'reps', 3, 5)).toEqual({ sets: 1, perSet: 6 });
+    expect(splitIntoSets(10, 'reps', 3, 5)).toEqual({ sets: 2, perSet: 5 });
+    expect(splitForExercise('pullup', 9, 3)).toEqual({ sets: 3, perSet: 3 });
+    expect(splitForExercise('plank', 40, 3)).toEqual({ sets: 2, perSet: 20 });
   });
 });
 
@@ -106,6 +121,15 @@ describe('createDailyQuest', () => {
     expect(quest).toMatchObject({ day: TODAY, progress: 0, completed: false, streak: 0, sets: 1, perSet: 11 });
     expect(quest.rewardXp).toBe(Math.round(11 * 9 * 0.5));
     expect(quest.rewardGold).toBe(30);
+  });
+
+  it('turns a tiny test session into a real quest, not 3 sets of 2', () => {
+    const history = [set('2026-03-06', 'pike_pushup', 2), set('2026-03-06', 'pike_pushup', 2), set('2026-03-06', 'pike_pushup', 1)];
+    let state = trainedOn(createInitialState(), '2026-03-09', ['back', 'biceps', 'abs', 'quads', 'glutes', 'hamstrings', 'calves']);
+    state = trainedOn(state, '2026-03-06', ['chest', 'triceps', 'shoulders']);
+    const quest = createDailyQuest(state, TODAY, 'normal', history, null);
+    expect(quest.exerciseId).toBe('pike_pushup');
+    expect(quest).toMatchObject({ target: 10, sets: 2, perSet: 5 });
   });
 
   it('keeps the streak going only after a quest completed yesterday', () => {

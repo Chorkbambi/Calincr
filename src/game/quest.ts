@@ -128,14 +128,22 @@ export function questTarget(
     }
   }
   if (effectiveMultiplier < 1) target = Math.round(target * QUEST.tiredFactor);
-  result.target = Math.max(QUEST.minTarget[unit], target);
+  result.target = Math.max(QUEST.minTarget[exercise.tier][unit], target);
   if (result.preferredSets === undefined) delete result.preferredSets;
   if (result.estimatedFrom === undefined) delete result.estimatedFrom;
   return result;
 }
 
-/** Splits a total into sets: the player's own number of sets when known, else the default table. */
-export function splitIntoSets(total: number, unit: 'reps' | 'seconds', preferredSets?: number): { sets: number; perSet: number } {
+/**
+ * Splits a total into sets: the player's own number of sets when known, else the default table.
+ * Never sets smaller than `minPerSet`: a small total gives fewer sets, not 3 × 2.
+ */
+export function splitIntoSets(
+  total: number,
+  unit: 'reps' | 'seconds',
+  preferredSets?: number,
+  minPerSet = 1,
+): { sets: number; perSet: number } {
   let sets: number;
   if (preferredSets !== undefined && preferredSets > 0) {
     sets = Math.min(QUEST.maxSets, preferredSets, total);
@@ -143,7 +151,14 @@ export function splitIntoSets(total: number, unit: 'reps' | 'seconds', preferred
     const rule = QUEST.sets[unit].find(([min]) => total >= min);
     sets = rule ? rule[1] : 1;
   }
+  sets = Math.max(1, Math.min(sets, Math.floor(total / Math.max(1, minPerSet))));
   return { sets, perSet: Math.ceil(total / sets) };
+}
+
+/** Sets of a quest or plan for this exercise: its tier's smallest set applies. */
+export function splitForExercise(exerciseId: ExerciseId, total: number, preferredSets?: number): { sets: number; perSet: number } {
+  const exercise = getExercise(exerciseId);
+  return splitIntoSets(total, exercise.unit, preferredSets, QUEST.minPerSet[exercise.tier][exercise.unit]);
 }
 
 /**
@@ -165,9 +180,10 @@ export function createDailyQuest(
   const comeback = away >= COMEBACK.minDaysAway;
   // Back after a break: a lighter day, unless the target already dropped for a long pause on this exercise.
   const alreadyLighter = planned.lastDone !== null && daysBetween(planned.lastDone.day, today) >= QUEST.detrainDays;
+  const minTarget = QUEST.minTarget[exercise.tier][exercise.unit];
   const target =
-    comeback && !alreadyLighter ? Math.max(QUEST.minTarget[exercise.unit], Math.round(planned.target * COMEBACK.targetFactor)) : planned.target;
-  const { sets, perSet } = splitIntoSets(target, exercise.unit, planned.preferredSets);
+    comeback && !alreadyLighter ? Math.max(minTarget, Math.round(planned.target * COMEBACK.targetFactor)) : planned.target;
+  const { sets, perSet } = splitForExercise(best.exerciseId, target, planned.preferredSets);
   let streak = 0;
   if (previous && previous.day < today) {
     streak = daysBetween(previous.day, today) === 1 && previous.completed ? previous.streak + 1 : 0;
@@ -203,8 +219,8 @@ export function createDailyQuest(
 export function applySessionGoal(quest: DailyQuest, goal: SessionGoal): DailyQuest {
   if (quest.progress > 0 || quest.completed) return quest;
   const exercise = getExercise(quest.exerciseId);
-  const target = Math.max(QUEST.minTarget[exercise.unit], Math.round(quest.baseTarget * SESSION_GOAL[goal]));
-  const { sets, perSet } = splitIntoSets(target, exercise.unit, quest.baseSets);
+  const target = Math.max(QUEST.minTarget[exercise.tier][exercise.unit], Math.round(quest.baseTarget * SESSION_GOAL[goal]));
+  const { sets, perSet } = splitForExercise(quest.exerciseId, target, quest.baseSets);
   return { ...quest, goal, target, sets, perSet, rewardXp: Math.round(target * exercise.baseXp * QUEST.xpBonusRatio) };
 }
 
