@@ -1,6 +1,6 @@
 # Calincr — Privacy policy
 
-Last updated: 2026-10-01
+Last updated: 2026-10-05
 
 ## In short
 
@@ -11,7 +11,7 @@ Last updated: 2026-10-01
 - The camera is only used in camera mode, and only after you press “Start camera”. You can use the whole app without it (manual mode).
 - The video is analysed live, on your phone, by a body-tracking engine built into the app (Google MediaPipe). It finds the position of 33 points of your body (shoulders, elbows, knees…) to count your reps.
 - The video is never recorded, never saved and never sent anywhere. The body points are used immediately to count reps, then thrown away. Only the number of reps is kept, plus, if you use “Calibrate”, two threshold angles per exercise (for example “elbow bent below 95°”) so that counting fits your range of motion.
-- The camera turns off when you stop it, change exercise or leave the Fight tab. You can hide your image and see only a stick figure at any time.
+- The camera turns off when the exercise is over, when you stop it or when you leave the Fight tab. You can choose to hide your image and see only a stick figure.
 - The app never records sound: the microphone is not used.
 
 ## Internet
@@ -36,7 +36,7 @@ Last updated: 2026-10-01
 
 ## Voice count
 
-- If you turn on the voice count, your phone's built-in voice reads the rep count out loud. The app only speaks: it never listens, records or sends anything.
+- If you turn on the voice count, your phone's built-in voice reads the rep count out loud and says when each rest starts and ends. The app only speaks: it never listens, records or sends anything.
 
 ## Backups
 

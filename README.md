@@ -17,13 +17,17 @@ against a monster. Your muscles level up, your damage grows, and rest is rewarde
   are marked ⚡).
 - **Weekly Titan**: a huge health bar that every hit of the week chips away at, for a big gold reward.
 - **Muscles**: 10 muscles with levels and XP; bonus for rested muscles, penalty for tired ones.
-- **Daily quest**: one exercise and a target based on your last session, with a day streak you can protect
-  with **Streak Freezes**.
-- **Personal records**: beating your best set of an exercise earns gold.
+- **Daily quest**: one exercise and a target based on your last session (never tiny sets like 3 × 2), with a
+  weekly goal streak you can protect with **Streak Freezes**.
+- **Workout plan**: before an exercise, pick its sets and reps (or seconds). Each set ends by itself at its
+  target, the rest timer starts on its own and the next set follows: the phone can stay on the floor.
+- **Personal records**: beating your best session of an exercise (all its sets in one day) earns gold, checked
+  when the exercise is finished.
 - **Shop**: swords (damage), armor (more gold), rings (combos, weaknesses), cosmetics (sword glow, damage number
   colour), Streak Freezes.
 - **Achievements** (20), **weekly recap**, **progress charts** per exercise, **share cards** (pictures).
-- Rest timer, local daily reminder, favourite exercises, camera calibration, backup to a file, large buttons.
+- Automatic rest timer, voice count (reps, rest start and end), local daily reminder, favourite exercises, camera
+  calibration, backup to a file, large buttons.
 
 ## Run the app on an iPhone from a Windows PC
 
@@ -125,14 +129,15 @@ On iPhone, installing a real app requires a paid Apple Developer account ($99/ye
 1. **Fight** — zone, monster or boss with its HP bar and **weakness**, gold, damage per hit, **daily quest**
    (one exercise + a rep target based on your last session, bonus XP and gold, day streak), Weekly Titan, your
    record on the exercise, exercise picker ("How to" button for instructions, ☆ to pin an exercise to the front,
-   "Last time" = your last session), rep counting by camera or by hand, combo (fast hits = more damage), rest timer.
+   "Last time" = your last session), **your plan** (sets × reps, rest between sets, voice count), rep counting by
+   camera or by hand, combo (fast hits = more damage), automatic rest timer.
 2. **Hero** — sword, body silhouette with each muscle coloured by level (tap a muscle to see recommended
    exercises), levels / XP / rest status, **achievements** (they pay gold; tap an unlocked one to share it as a
    picture), defeated bosses.
 3. **Shop** — tabs Swords, Gear (armor and rings), Style (cosmetics) and Items (Streak Freeze).
 4. **Calendar** — month view shaded by volume, day details, **progress charts** per exercise (total and best set
    per week; tap a week to see its value), weekly and monthly totals.
-5. **Settings** — camera or manual mode, difficulty (Beginner / Normal / Advanced), rest timer, daily reminder,
+5. **Settings** — camera or manual mode, difficulty (Beginner / Intermediate / Expert), rest timer, daily reminder,
    large buttons, **backup** (export / import a file), privacy, reset.
 
 Every Monday (on the first launch of the week), a **recap of last week** is shown, with a button to share it as a
@@ -149,19 +154,25 @@ Settings → **Export backup**: creates a `calincr-backup-YYYY-MM-DD.json` file 
   is never recorded or sent: only the counted reps are kept.
 - **Works offline**: the pose detection engine (Google MediaPipe, about 18 MB) is built into the app. No download,
   no internet connection.
-- If the camera misses reps, the "+1 rep" / "+5 reps" buttons (or "+5 s" for holds) let you correct by hand.
-  As in manual mode, "Undo" doesn't undo anything.
 - Each exercise's "How to" button shows a short animation and the steps.
-- Pick the exercise first, then tap **Start camera**: the preparation screen tells you which body parts must be
-  visible. The camera opens full screen; the **Rotate** button switches to landscape (handy for push-ups or planks).
-  It stops with **Stop camera**, when you change exercise or when you leave the tab.
+- Pick the exercise and your plan (sets × reps), then tap **Start camera**: the preparation screen tells you which
+  body parts must be visible. The camera opens full screen and shows only your image, the count and the rest
+  countdown: nothing to tap until the end. Each set ends at its target (or 20 s after your last rep), the rest timer
+  runs, then the next set starts. Turn the phone sideways for push-ups or planks: the camera turns with it (if your
+  phone's rotation lock is off).
+- After the last set (or **✕ Stop**, or leaving the tab) the camera closes and a **Check your sets** screen shows
+  the count of each set: fix it up or down if the camera missed or added a rep, then confirm. Your sword strikes
+  happen then.
 - Place the phone side-on, about 2 m away (each exercise says where to put it).
-- On first launch: a short tutorial (3 screens), then the choice between camera and manual mode, and the rest timer.
-- **Calibrate**: do 3 slow, full reps and the app adapts its thresholds to your range of motion (for that exercise).
-- On the camera screen, the **Image: on/off** button hides your picture (only a stick figure is shown).
+- On first launch: a short tutorial (3 screens), then your level (Beginner / Intermediate / Expert), camera or
+  manual mode, and the rest timer.
+- **Calibrate** (on the preparation screen): the camera opens, you do 3 slow, full reps and the app adapts its
+  thresholds to your range of motion (for that exercise).
+- The **Image: on/off** button on the preparation screen hides your picture (only a stick figure is shown).
 - Privacy policy: in Settings, and in [`PRIVACY.md`](PRIVACY.md).
 - Rather not film yourself? **Settings → Manual (no camera)**: you tap the Rep button yourself
-  (and choose how many reps each press adds).
+  (and choose how many reps each press adds). Sets end at their target and the rest timer starts by itself too;
+  as before, "Undo" doesn't undo anything.
 
 ## Public repository
 

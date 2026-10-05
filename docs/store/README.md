@@ -47,8 +47,10 @@ Your body is your weapon
 
 Reps counted by the camera, or by hand
 • Camera mode counts your reps by tracking your body on your phone. The video is never recorded or sent.
+• Pick your sets and reps: each set ends by itself and the rest timer starts on its own, phone on the floor.
+• Check and fix the counts at the end of each exercise.
 • Prefer not to film yourself? Manual mode: one tap per rep.
-• Optional voice count says your reps out loud.
+• Optional voice count says your reps, and when each rest starts and ends.
 
 Motivation that lasts
 • A daily quest based on your last sessions.
@@ -57,7 +59,7 @@ Motivation that lasts
 • A weekly Titan, achievements, and swords, armor and rings to buy with the gold you earn.
 
 For every level
-• Beginner, Normal and Advanced modes: 31 exercises with animated how-to guides.
+• Beginner, Intermediate and Expert modes: 31 exercises with animated how-to guides.
 • Suggestions by muscle group: push, pull, legs or core day.
 
 Private by design
