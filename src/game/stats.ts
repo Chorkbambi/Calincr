@@ -113,7 +113,7 @@ export interface MonthSummary {
   holdSeconds: number;
   /** Exercise with the most volume this month. */
   topExercise: ExerciseId | null;
-  /** Best sets of the month that beat everything done before the month. */
+  /** Best sessions (day totals of an exercise) of the month that beat every session before the month. */
   records: { exerciseId: ExerciseId; previous: number; best: number }[];
 }
 
@@ -121,6 +121,7 @@ export interface MonthSummary {
 export function monthSummary(sets: readonly SetRecord[], month: string): MonthSummary {
   const before = new Map<ExerciseId, number>();
   const bestInMonth = new Map<ExerciseId, number>();
+  const sessions = new Map<string, { exerciseId: ExerciseId; total: number; inMonth: boolean }>();
   const days = new Set<DayKey>();
   const volume = new Map<ExerciseId, number>();
   let count = 0;
@@ -128,17 +129,20 @@ export function monthSummary(sets: readonly SetRecord[], month: string): MonthSu
   let holdSeconds = 0;
   for (const set of sets) {
     const key = monthKey(set.day);
-    if (key < month) {
-      before.set(set.exerciseId, Math.max(before.get(set.exerciseId) ?? 0, set.amount));
-      continue;
-    }
-    if (key !== month || set.amount <= 0) continue;
+    if (key > month || set.amount <= 0) continue;
+    const session = sessions.get(`${set.day}|${set.exerciseId}`) ?? { exerciseId: set.exerciseId, total: 0, inMonth: key === month };
+    session.total += set.amount;
+    sessions.set(`${set.day}|${set.exerciseId}`, session);
+    if (key !== month) continue;
     count += 1;
     days.add(set.day);
     if (getExercise(set.exerciseId).unit === 'seconds') holdSeconds += set.amount;
     else reps += set.amount;
-    bestInMonth.set(set.exerciseId, Math.max(bestInMonth.get(set.exerciseId) ?? 0, set.amount));
     volume.set(set.exerciseId, (volume.get(set.exerciseId) ?? 0) + setVolume(set));
+  }
+  for (const { exerciseId, total, inMonth } of sessions.values()) {
+    const map = inMonth ? bestInMonth : before;
+    map.set(exerciseId, Math.max(map.get(exerciseId) ?? 0, total));
   }
   const records = [...bestInMonth.entries()]
     .filter(([id, best]) => (before.get(id) ?? 0) > 0 && best > before.get(id)!)

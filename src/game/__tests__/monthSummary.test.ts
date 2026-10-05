@@ -33,8 +33,9 @@ describe('monthSummary', () => {
       reps: 55,
       holdSeconds: 45,
       topExercise: 'pushup',
+      // Records are best sessions (all sets of the day): 15 + 10 push-ups beat 12.
       // Squats did not beat 30; lunges were never done before (no record to beat).
-      records: [{ exerciseId: 'pushup', previous: 12, best: 15 }],
+      records: [{ exerciseId: 'pushup', previous: 12, best: 25 }],
     });
   });
 

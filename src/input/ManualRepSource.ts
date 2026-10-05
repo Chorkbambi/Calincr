@@ -52,6 +52,10 @@ export class ManualRepSource extends BaseRepSource {
     return this.elapsed;
   }
 
+  override endSet(): void {
+    this.stopTimer();
+  }
+
   onTimer(listener: (seconds: number, running: boolean) => void): () => void {
     this.timerListeners.add(listener);
     return () => {

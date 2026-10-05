@@ -13,6 +13,8 @@ export type RepListener = (event: RepEvent) => void;
 
 export interface RepSource {
   subscribe(listener: RepListener): () => void;
+  /** The set is over: stop any running stopwatch and start the next set from a clean position. */
+  endSet(): void;
   /** Releases timers, sensors, camera… */
   dispose(): void;
 }
@@ -31,6 +33,8 @@ export abstract class BaseRepSource implements RepSource {
   protected emit(event: RepEvent): void {
     for (const listener of [...this.listeners]) listener(event);
   }
+
+  endSet(): void {}
 
   dispose(): void {
     this.listeners.clear();

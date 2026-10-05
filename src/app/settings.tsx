@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { REST_TIMER_CHOICES, setWeeklyGoal, WEEKLY_GOAL, type Difficulty, type InputMode } from '../game';
+import { REST_TIMER_CHOICES, setWeeklyGoal, WEEKLY_GOAL, type InputMode } from '../game';
 import { cancelDailyReminder, scheduleDailyReminder } from '../notifications/reminders';
 import { useGame } from '../state/GameProvider';
 import { formatClock, restTimerLabel } from '../ui/format';
@@ -12,6 +12,7 @@ import { GoldButton } from '../ui/components/GoldButton';
 import { Panel } from '../ui/components/Panel';
 import { LicensesModal } from '../ui/components/LicensesModal';
 import { PrivacyPolicyModal } from '../ui/components/PrivacyPolicyModal';
+import { DIFFICULTY_CHOICES } from '../ui/difficulty';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 
 function Choice<T extends string>({
@@ -87,19 +88,13 @@ const INPUT_MODES: { value: InputMode; label: string; description: string }[] = 
     value: 'camera',
     label: 'Camera',
     description:
-      'Your phone watches your movements and counts reps automatically (you can still add missed reps by hand). Analysed on the phone only, works offline.',
+      'Your phone watches your movements and counts reps automatically; you check the counts at the end of each exercise. Analysed on the phone only, works offline.',
   },
   {
     value: 'manual',
     label: 'Manual (no camera)',
     description: 'Tap the Rep button yourself. You choose how many reps each press adds.',
   },
-];
-
-const DIFFICULTIES: { value: Difficulty; label: string; description: string }[] = [
-  { value: 'beginner', label: 'Beginner', description: 'Simplified exercises: wall and knee push-ups, chair squats…' },
-  { value: 'normal', label: 'Normal', description: 'Classic exercises: push-ups, squats, lunges, plank…' },
-  { value: 'advanced', label: 'Advanced', description: 'Normal exercises plus hard ones: pull-ups, dips, pistol squats…' },
 ];
 
 export default function SettingsScreen() {
@@ -163,11 +158,11 @@ export default function SettingsScreen() {
         </Panel>
 
         <Panel title="Difficulty">
-          <Choice options={DIFFICULTIES} value={settings.difficulty} onChange={(difficulty) => updateSettings({ difficulty })} />
+          <Choice options={DIFFICULTY_CHOICES} value={settings.difficulty} onChange={(difficulty) => updateSettings({ difficulty })} />
         </Panel>
 
         <Panel title="Rest timer">
-          <Text style={styles.muted}>Countdown shown after “Finish set”.</Text>
+          <Text style={styles.muted}>Countdown between two sets: it starts by itself when a set ends.</Text>
           <View style={styles.chips}>
             {REST_TIMER_CHOICES.map((s) => {
               const selected = settings.restTimerSeconds === s;
@@ -211,7 +206,7 @@ export default function SettingsScreen() {
         <Panel title="Voice count">
           <Toggle
             label="Count reps out loud"
-            description="Your phone’s voice counts the reps of the set (holds: every 10 s) and says when the rest is over. Also on the Fight screen."
+            description="Your phone’s voice counts the reps of the set (holds: every 10 s) and says when each rest starts and ends. Also on the Fight screen."
             value={settings.voiceCount}
             onChange={(voiceCount) => updateSettings({ voiceCount })}
           />
@@ -237,7 +232,7 @@ export default function SettingsScreen() {
         <Panel title="Accessibility">
           <Toggle
             label="Large buttons"
-            description="Bigger Rep, correction and Finish set buttons during the fight."
+            description="Bigger Rep and Finish set buttons and exercise chips during the fight."
             value={settings.largeButtons}
             onChange={(largeButtons) => updateSettings({ largeButtons })}
           />
@@ -256,7 +251,7 @@ export default function SettingsScreen() {
           </Text>
           <Text style={styles.text}>• The camera is switched off as soon as you leave the Fight tab.</Text>
           <Text style={styles.text}>• Prefer not to film yourself? Choose Manual mode above.</Text>
-          <Text style={styles.text}>• In camera mode, the “Image” button hides your picture and shows only a stick figure.</Text>
+          <Text style={styles.text}>• In camera mode, the “Image” button (before you start the camera) hides your picture and shows only a stick figure.</Text>
           <Text style={styles.text}>• The app never uses the microphone.</Text>
           <Text style={styles.text}>
             • Daily reminders are scheduled by your phone itself. Backups and shared pictures go only where you choose.

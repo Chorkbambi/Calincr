@@ -12,6 +12,7 @@ import {
   type GameState,
   type Kill,
   type SetRecord,
+  type SessionRecord,
   type Settings,
 } from '../game';
 import { restoreCalibrations, type Calibrations } from '../pose/calibration';
@@ -185,18 +186,19 @@ export class GameRepository {
     return rows.map(toKill);
   }
 
-  /** For each exercise, the total done on the last day it was trained (today included). */
-  async lastDoneByExercise(): Promise<Record<string, { day: DayKey; amount: number }>> {
-    const rows = await this.db.getAllAsync<{ exercise_id: string; day: string; amount: number }>(
-      `SELECT s.exercise_id, s.day, SUM(s.amount) AS amount FROM sets s
-       JOIN (SELECT exercise_id, MAX(day) AS day FROM sets GROUP BY exercise_id) last
+  /** For each exercise, the last day it was trained (today included): total, best set and number of sets. */
+  async lastDoneByExercise(): Promise<Record<string, { day: DayKey; amount: number; best: number; sets: number }>> {
+    const rows = await this.db.getAllAsync<{ exercise_id: string; day: string; amount: number; best: number; sets: number }>(
+      `SELECT s.exercise_id, s.day, SUM(s.amount) AS amount, MAX(s.amount) AS best, COUNT(*) AS sets FROM sets s
+       JOIN (SELECT exercise_id, MAX(day) AS day FROM sets WHERE amount > 0 GROUP BY exercise_id) last
          ON last.exercise_id = s.exercise_id AND last.day = s.day
+       WHERE s.amount > 0
        GROUP BY s.exercise_id, s.day`,
     );
-    return Object.fromEntries(rows.map((r) => [r.exercise_id, { day: r.day, amount: r.amount }]));
+    return Object.fromEntries(rows.map((r) => [r.exercise_id, { day: r.day, amount: r.amount, best: r.best, sets: r.sets }]));
   }
 
-  /** Best single set ever, per exercise (to seed personal records). */
+  /** Best single set ever, per exercise (to seed the best sets used by skills). */
   async bestSetByExercise(): Promise<Partial<Record<ExerciseId, number>>> {
     const rows = await this.db.getAllAsync<{ exercise_id: string; best: number }>(
       'SELECT exercise_id, MAX(amount) AS best FROM sets GROUP BY exercise_id',
@@ -204,6 +206,31 @@ export class GameRepository {
     const result: Partial<Record<ExerciseId, number>> = {};
     for (const r of rows) if (isExerciseId(r.exercise_id) && r.best > 0) result[r.exercise_id] = r.best;
     return result;
+  }
+
+  /** Best session (day total) per exercise on days before `before` (to seed personal records). */
+  async bestSessionByExercise(before: DayKey): Promise<Partial<Record<ExerciseId, SessionRecord>>> {
+    const rows = await this.db.getAllAsync<{ exercise_id: string; day: string; total: number }>(
+      'SELECT exercise_id, day, SUM(amount) AS total FROM sets WHERE day < ? GROUP BY exercise_id, day',
+      before,
+    );
+    const result: Partial<Record<ExerciseId, SessionRecord>> = {};
+    for (const r of rows) {
+      if (!isExerciseId(r.exercise_id) || !(r.total > 0)) continue;
+      const best = result[r.exercise_id];
+      if (!best || r.total > best.amount) result[r.exercise_id] = { amount: r.total, day: r.day };
+    }
+    return result;
+  }
+
+  /** Everything done on one exercise during one day. */
+  async dayTotal(exerciseId: ExerciseId, day: DayKey): Promise<number> {
+    const row = await this.db.getFirstAsync<{ total: number | null }>(
+      'SELECT SUM(amount) AS total FROM sets WHERE exercise_id = ? AND day = ?',
+      exerciseId,
+      day,
+    );
+    return row?.total ?? 0;
   }
 
   /** Per training day of one exercise: total and best set, oldest first. */
