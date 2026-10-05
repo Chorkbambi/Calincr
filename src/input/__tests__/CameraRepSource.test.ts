@@ -29,18 +29,19 @@ describe('CameraRepSource', () => {
     expect(source.getState()).toEqual({ stage: 'error', code: 'camera_denied' });
   });
 
-  it('accepts manual corrections for missed reps or seconds', () => {
-    const source = new CameraRepSource('plank');
+  it('starts each set from a clean position', () => {
+    const source = new CameraRepSource('pushup');
     const events: RepEvent[] = [];
     source.subscribe((e) => events.push(e));
-    source.addManually(1, 'reps');
-    source.addManually(5, 'seconds');
-    source.addManually(0, 'reps');
-    source.addManually(Number.NaN, 'reps');
-    expect(events).toEqual([
-      { type: 'reps', count: 1, burst: false },
-      { type: 'seconds', seconds: 5 },
-    ]);
+    source.handleMessage('{"type":"ready"}');
+    let t = 0;
+    // Down at the end of the rest, then the set starts: coming back up is not a rep.
+    for (const angle of [170, 170, 170, 90, 90, 90]) source.handleMessage(poseMessage((t += 66), angle));
+    source.endSet();
+    for (const angle of [170, 170, 170]) source.handleMessage(poseMessage((t += 66), angle));
+    expect(events).toEqual([]);
+    for (const angle of [90, 90, 90, 170, 170, 170]) source.handleMessage(poseMessage((t += 66), angle));
+    expect(events).toEqual([{ type: 'reps', count: 1, burst: false }]);
   });
 
   it('calibrates without counting reps, then uses the player thresholds', () => {

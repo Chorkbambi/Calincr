@@ -1,53 +1,33 @@
-import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { REST_OVER_PHRASE } from '../../game';
 import { colors, fonts, radius, spacing } from '../theme';
-import { say } from '../voice';
 import { GoldButton } from './GoldButton';
 import { ProgressBar } from './ProgressBar';
 
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+export const clock = (s: number) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 
-/** Countdown shown after a set; vibrates (and speaks, if the voice count is on) when the rest is over. */
+/** Countdown between two sets. The workout (useWorkout) decides when it ends; this only shows it. */
 export function RestTimer({
-  startedAt,
+  secondsLeft,
   seconds,
-  onDone,
-  voice = false,
+  next,
+  onSkip,
 }: {
-  startedAt: number;
+  secondsLeft: number;
   seconds: number;
-  onDone: () => void;
-  voice?: boolean;
+  /** What comes after the rest, e.g. "Next: set 2 of 3 · 10 reps". */
+  next: string;
+  onSkip?: () => void;
 }) {
-  const [now, setNow] = useState(Date.now());
-  const left = Math.max(0, seconds - Math.floor((now - startedAt) / 1000));
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    if (left === 0) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      if (voice) say(REST_OVER_PHRASE);
-      const t = setTimeout(onDone, 1500);
-      return () => clearTimeout(t);
-    }
-    return undefined;
-  }, [left === 0]); // eslint-disable-line react-hooks/exhaustive-deps
-
   return (
     <View style={styles.box} accessibilityLiveRegion="polite">
       <View style={styles.row}>
-        <Text style={styles.label}>{left > 0 ? 'Rest' : 'Rest over — next set!'}</Text>
-        <Text style={styles.time}>{clock(left)}</Text>
+        <Text style={styles.label}>Rest</Text>
+        <Text style={styles.time}>{clock(secondsLeft)}</Text>
       </View>
-      <ProgressBar progress={1 - left / seconds} color={left > 0 ? colors.gold : colors.rested} />
-      {left > 0 ? <GoldButton label="Skip rest" variant="stone" onPress={onDone} /> : null}
+      <ProgressBar progress={seconds > 0 ? 1 - secondsLeft / seconds : 1} color={colors.gold} />
+      <Text style={styles.next}>{next}</Text>
+      {onSkip ? <GoldButton label="Skip rest" variant="stone" onPress={onSkip} /> : null}
     </View>
   );
 }
@@ -64,4 +44,5 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   label: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 16 },
   time: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 28, fontVariant: ['tabular-nums'] },
+  next: { color: colors.textMuted, fontSize: 13 },
 });

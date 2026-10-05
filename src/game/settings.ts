@@ -4,7 +4,7 @@ import { isExerciseId } from './exercises';
 export type InputMode = 'camera' | 'manual';
 
 /** Bump when the first-launch flow gains new steps: players who saw an older version see it again. */
-export const ONBOARDING_VERSION = 2;
+export const ONBOARDING_VERSION = 3;
 
 export interface Settings {
   inputMode: InputMode;

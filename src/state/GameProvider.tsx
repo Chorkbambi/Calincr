@@ -6,8 +6,10 @@ import {
   applyQuestReward,
   applySessionGoal,
   applyWork,
+  breakCombo,
   buyWeapon,
   checkAchievements,
+  checkSessionRecord,
   createBackup,
   createDailyQuest,
   createInitialState,
@@ -20,7 +22,7 @@ import {
   recordWork,
   newSkillSteps,
   seedRecords,
-  trackRecord,
+  updateBestSet,
   type SessionGoal,
   type NewRecord,
   toDayKey,
@@ -46,12 +48,14 @@ export type UnlockedAchievement = { id: string; name: string; gold: number };
 export type WorkResult = WorkOutcome & {
   questCompleted: DailyQuest | null;
   achievements: UnlockedAchievement[];
-  record: NewRecord | null;
   /** Total of the open set after this work (reps, or seconds for holds). */
   setAmount: number;
-  /** Skill steps reached by this work (new personal records). */
+  /** Skill steps reached by this work (new best sets). */
   skillSteps: { name: string; icon: string; done: number; total: number }[];
 };
+
+/** End of an exercise: the personal record (best session) it beat, and the achievements that followed. */
+export type ExerciseResult = { record: NewRecord | null; achievements: UnlockedAchievement[] };
 
 /** A shop operation: returns the new state or an error. */
 export type ShopOperation = (state: GameState) => { state: GameState } | { error: ShopError };
@@ -65,7 +69,10 @@ interface GameContextValue {
   repository: GameRepository;
   /** Increments after every saved change, so screens can reload their queries. */
   dataVersion: number;
-  work(exerciseId: ExerciseId, input: WorkInput): WorkResult;
+  /** `newSet`: this work starts a new set after a rest (closes the open set, ends the combo). */
+  work(exerciseId: ExerciseId, input: WorkInput, options?: { newSet?: boolean }): WorkResult;
+  /** All sets of the exercise are done: closes the set and checks the personal record (best session). */
+  finishExercise(exerciseId: ExerciseId): Promise<ExerciseResult>;
   /** Creates today's quest if needed (new day, difficulty change). */
   refreshQuest(): void;
   /** Session length for today's quest (null = skipped: keeps the normal target and stops asking today). */
@@ -128,11 +135,12 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       repository.loadQuest(),
       repository.loadCalibrations(),
       repository.bestSetByExercise(),
+      repository.bestSessionByExercise(toDayKey(new Date())),
     ]).then(
-      ([stored, loadedSettings, loadedQuest, loadedCalibrations, bestSets]) => {
+      ([stored, loadedSettings, loadedQuest, loadedCalibrations, bestSets, bestSessions]) => {
         if (cancelled) return;
-        // Saves from before personal records existed: start from the best sets in the history.
-        const loaded = seedRecords(stored, bestSets);
+        // Saves from before personal records existed: start from the best sets and sessions in the history.
+        const loaded = seedRecords(stored, bestSets, bestSessions);
         calibrationsRef.current = loadedCalibrations;
         setCalibrations(loadedCalibrations);
         stateRef.current = loaded;
@@ -180,12 +188,14 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
   }, [state === null, settings.difficulty, refreshQuest]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const work = useCallback(
-    (exerciseId: ExerciseId, input: WorkInput): WorkResult => {
-      const current = stateRef.current ?? createInitialState();
+    (exerciseId: ExerciseId, input: WorkInput, options?: { newSet?: boolean }): WorkResult => {
+      if (options?.newSet) setRef.current = null;
+      const previous = stateRef.current ?? createInitialState();
+      const current = options?.newSet ? breakCombo(previous) : previous;
       const now = new Date();
       const result = applyWork(current, exerciseId, input, now);
       let nextState = result.state;
-      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], record: null, setAmount: 0, skillSteps: [] };
+      const outcome: WorkResult = { ...result.outcome, questCompleted: null, achievements: [], setAmount: 0, skillSteps: [] };
       let nextQuest: DailyQuest | null = null;
       if (questRef.current) {
         const progressed = progressQuest(questRef.current, result.outcome);
@@ -204,12 +214,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       const set = result.outcome.amount > 0 ? recordWork(setRef.current, result.outcome, now, newId) : setRef.current;
       setRef.current = set;
       outcome.setAmount = set?.amount ?? 0;
-      if (set && result.outcome.amount > 0) {
-        const tracked = trackRecord(nextState, exerciseId, set.id, set.amount);
-        nextState = tracked.state;
-        outcome.record = tracked.record;
-        if (tracked.record) outcome.goldEarned += tracked.record.gold;
-      }
+      if (set && result.outcome.amount > 0) nextState = updateBestSet(nextState, exerciseId, set.amount);
       outcome.skillSteps = newSkillSteps(current.records, nextState.records);
       const checked = checkAchievements(nextState);
       nextState = checked.state;
@@ -243,6 +248,25 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
     setRef.current = null;
     setOpenSet(null);
   }, []);
+
+  const finishExercise = useCallback(
+    async (exerciseId: ExerciseId): Promise<ExerciseResult> => {
+      closeSet();
+      // Today's total comes from the saved sets, so a restart in the middle of the day loses nothing.
+      await saveQueue.current;
+      const day = toDayKey(new Date());
+      const total = await repository.dayTotal(exerciseId, day);
+      const current = stateRef.current;
+      if (!current) return { record: null, achievements: [] };
+      const checked = checkSessionRecord(current, exerciseId, day, total);
+      if (checked.state === current) return { record: null, achievements: [] };
+      const achieved = checkAchievements(checked.state);
+      commitState(achieved.state);
+      enqueueSave(() => repository.saveState(achieved.state));
+      return { record: checked.record, achievements: achieved.unlocked };
+    },
+    [repository, closeSet, commitState, enqueueSave],
+  );
 
   const transact = useCallback(
     (operation: ShopOperation): ShopError | null => {
@@ -339,6 +363,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
             refreshQuest,
             setSessionGoal,
             closeSet,
+            finishExercise,
             buy,
             equip,
             transact,
@@ -363,6 +388,7 @@ export function GameProvider({ children, fallback }: { children: ReactNode; fall
       refreshQuest,
       setSessionGoal,
       closeSet,
+      finishExercise,
       buy,
       equip,
       transact,

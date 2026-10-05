@@ -2,7 +2,7 @@ import { createEnemy } from '../enemy';
 import { applyWork, createInitialState, currentWeeklyBoss, type GameState } from '../engine';
 import { applySessionGoal, createDailyQuest } from '../quest';
 import { rollWeeklyGoal, setWeeklyGoal } from '../weeklyGoal';
-import { seedRecords, trackRecord } from '../records';
+import { checkSessionRecord, seedRecords, updateBestSet } from '../records';
 import { restoreState } from '../serialization';
 import { buyCosmetic, buyGear, buyStreakFreeze, equipCosmetic, equipGear, streakFreezePrice } from '../shop';
 import { enemyWeakness, exerciseStyle, gearEffects } from '../styles';
@@ -124,28 +124,40 @@ describe('weekly boss', () => {
 
 describe('personal records', () => {
   it('only sets the record the first time', () => {
-    const { state, record } = trackRecord(createInitialState(), 'pushup', 'set-1', 12);
+    const { state, record } = checkSessionRecord(createInitialState(), 'pushup', TODAY, 30);
     expect(record).toBeNull();
-    expect(state.records.pushup).toBe(12);
+    expect(state.sessionRecords.pushup).toEqual({ amount: 30, day: TODAY });
+    expect(state.gold).toBe(0);
   });
 
-  it('pays once per set when the previous best is beaten', () => {
-    let state: GameState = { ...createInitialState(), records: { pushup: 12 } };
-    let r = trackRecord(state, 'pushup', 'set-2', 10);
-    expect(r.record).toBeNull();
-    r = trackRecord(r.state, 'pushup', 'set-2', 13);
-    expect(r.record).toEqual({ exerciseId: 'pushup', amount: 13, previous: 12, gold: 20 });
+  it('pays when the whole session beats the best earlier session, once a day', () => {
+    const state: GameState = { ...createInitialState(), sessionRecords: { pushup: { amount: 30, day: '2026-03-06' } } };
+    expect(checkSessionRecord(state, 'pushup', TODAY, 30)).toEqual({ state, record: null });
+    let r = checkSessionRecord(state, 'pushup', TODAY, 33);
+    expect(r.record).toEqual({ exerciseId: 'pushup', amount: 33, previous: 30, gold: 20 });
     expect(r.state.gold).toBe(20);
-    r = trackRecord(r.state, 'pushup', 'set-2', 15);
+    expect(r.state.lifetime.records).toBe(1);
+    // More push-ups later the same day: the record grows, no second reward.
+    r = checkSessionRecord(r.state, 'pushup', TODAY, 40);
     expect(r.record).toBeNull();
-    expect(r.state.records.pushup).toBe(15);
-    state = r.state;
-    expect(trackRecord(state, 'pushup', 'set-3', 16).record?.previous).toBe(15);
+    expect(r.state.sessionRecords.pushup).toEqual({ amount: 40, day: TODAY });
+    expect(r.state.gold).toBe(20);
+    // Another day: 41 beats 40.
+    expect(checkSessionRecord(r.state, 'pushup', '2026-03-11', 41).record?.previous).toBe(40);
+  });
+
+  it('keeps the best single set silently, for skills', () => {
+    const state = updateBestSet(createInitialState(), 'pushup', 12);
+    expect(state.records.pushup).toBe(12);
+    expect(state.gold).toBe(0);
+    expect(updateBestSet(state, 'pushup', 10)).toBe(state);
   });
 
   it('seeds records from the history without lowering them', () => {
-    const state = { ...createInitialState(), records: { pushup: 20 } };
-    expect(seedRecords(state, { pushup: 15, squat: 30 }).records).toEqual({ pushup: 20, squat: 30 });
+    const state: GameState = { ...createInitialState(), records: { pushup: 20 }, sessionRecords: { pushup: { amount: 50, day: '2026-03-01' } } };
+    const seeded = seedRecords(state, { pushup: 15, squat: 30 }, { pushup: { amount: 40, day: '2026-03-02' }, squat: { amount: 60, day: '2026-03-03' } });
+    expect(seeded.records).toEqual({ pushup: 20, squat: 30 });
+    expect(seeded.sessionRecords).toEqual({ pushup: { amount: 50, day: '2026-03-01' }, squat: { amount: 60, day: '2026-03-03' } });
   });
 });
 
@@ -238,6 +250,8 @@ describe('restoring the new fields', () => {
       streakFreezes: 99,
       weekly: { weekStart: '2026-03-09', days: ['2026-03-09', 'bad', '2026-03-09'], goal: 40, streak: 3, best: 1, rewarded: true },
       records: { pushup: 20, nope: 3, squat: -1 },
+      sessionRecords: { pushup: { amount: 45, day: '2026-03-08' }, squat: { amount: 10, day: 'yesterday' }, nope: { amount: 3, day: '2026-03-08' } },
+      recordRun: { setId: 'old', exerciseId: 'pushup', best: 3, rewarded: false },
       weeklyBoss: { weekStart: '2026-03-09', hp: 5000, maxHp: 3000 },
     };
     const state = restoreState(JSON.parse(JSON.stringify(saved)));
@@ -248,6 +262,8 @@ describe('restoring the new fields', () => {
     expect(state.weekly).toEqual({ weekStart: '2026-03-09', days: ['2026-03-09'], goal: 7, streak: 3, best: 3, rewarded: true });
     expect(restoreState({}).weekly).toMatchObject({ weekStart: '', goal: 3, streak: 0 });
     expect(state.records).toEqual({ pushup: 20 });
+    expect(state.sessionRecords).toEqual({ pushup: { amount: 45, day: '2026-03-08' } });
+    expect(state).not.toHaveProperty('recordRun');
     expect(state.weeklyBoss).toEqual({ weekStart: '2026-03-09', hp: 3000, maxHp: 3000, defeated: false });
   });
 });

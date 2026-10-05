@@ -130,14 +130,15 @@ export function restoreState(raw: unknown): GameState {
       }
     }
   }
-  const run = raw.recordRun;
-  if (isObject(run) && typeof run.setId === 'string' && typeof run.exerciseId === 'string' && isExerciseId(run.exerciseId)) {
-    state.recordRun = {
-      setId: run.setId.slice(0, 64),
-      exerciseId: run.exerciseId,
-      best: int(run.best, 0, 0),
-      rewarded: run.rewarded === true,
-    };
+  // Saves from before session records had a `recordRun` (per set): ignored, records are seeded from the history.
+  if (isObject(raw.sessionRecords)) {
+    for (const [id, value] of Object.entries(raw.sessionRecords)) {
+      if (!isExerciseId(id) || !isObject(value)) continue;
+      const amount = num(value.amount, 0);
+      if (amount > 0 && typeof value.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value.day)) {
+        state.sessionRecords[id as ExerciseId] = { amount: Math.floor(amount), day: value.day };
+      }
+    }
   }
 
   const boss = raw.weeklyBoss;

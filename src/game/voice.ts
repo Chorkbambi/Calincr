@@ -14,3 +14,18 @@ export function voiceCountPhrase(unit: ExerciseUnit, previous: number, current: 
 }
 
 export const REST_OVER_PHRASE = 'Rest over. Next set!';
+
+const seconds = (n: number) => (n % 60 === 0 ? `${n / 60} minute${n === 60 ? '' : 's'}` : `${n} seconds`);
+
+/** Said when a set ends by itself (target reached or the player stopped): the rest starts. */
+export function restStartPhrase(setNumber: number, totalSets: number, restSeconds: number): string {
+  const next = setNumber + 1 === totalSets ? 'Last set' : `Set ${setNumber + 1}`;
+  return restSeconds > 0 ? `Set ${setNumber} done. Rest, ${seconds(restSeconds)}.` : `Set ${setNumber} done. ${next}, go!`;
+}
+
+/** Said when the rest is over: which set comes next. */
+export function restOverPhrase(nextSet: number, totalSets: number): string {
+  return nextSet === totalSets ? 'Rest over. Last set, go!' : `Rest over. Set ${nextSet} of ${totalSets}, go!`;
+}
+
+export const WORKOUT_DONE_PHRASE = 'Exercise complete. Well done!';

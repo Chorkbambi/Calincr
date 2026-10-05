@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   COSMETICS,
+  DIFFICULTY_NAMES,
   ENEMIES,
   enemyName,
   enemyWeakness,
@@ -22,41 +23,49 @@ import {
   recommendExercises,
   sortForBattle,
   STYLE_MUSCLES,
+  suggestPlan,
   toDayKey,
   todayFocus,
-  voiceCountPhrase,
   WEAPONS,
   zoneForLevel,
   type ExerciseId,
   type WorkInput,
+  type Workout,
+  type WorkoutPlan,
 } from '../game';
-import { useRepInput, type RepEvent } from '../input';
-import { useGame, type WorkResult } from '../state/GameProvider';
+import { useRepInput, type RepEvent, type RepSource } from '../input';
+import { useGame, type ExerciseResult, type WorkResult } from '../state/GameProvider';
 import { BattleArena } from '../ui/components/BattleArena';
 import { DailyQuestCard } from '../ui/components/DailyQuestCard';
 import { ExerciseGuideModal } from '../ui/components/ExerciseGuideModal';
-import { GoldButton } from '../ui/components/GoldButton';
 import { HpBar } from '../ui/components/HpBar';
 import { LevelUpBanner, type LevelUpEvent } from '../ui/components/LevelUpBanner';
 import { ComboBadge } from '../ui/components/ComboBadge';
-import { RestTimer } from '../ui/components/RestTimer';
+import { PlanCard } from '../ui/components/PlanCard';
 import { VoiceToggle } from '../ui/components/VoiceToggle';
-import { RecordProgress } from '../ui/components/RecordProgress';
 import { SessionGoalCard } from '../ui/components/SessionGoalCard';
+import { SetReviewModal, type SetReview } from '../ui/components/SetReviewModal';
 import { WeeklyBossBar } from '../ui/components/WeeklyBossBar';
 import { WeeklyGoalCard } from '../ui/components/WeeklyGoalCard';
+import { WorkoutProgress } from '../ui/components/WorkoutProgress';
 import { formatAmount, formatCompact, formatDayShort, formatNumber } from '../ui/format';
 import { colors, fonts, radius, spacing } from '../ui/theme';
 import { useHitQueue } from '../ui/useHitQueue';
-import { say, stopSpeaking } from '../ui/voice';
+import { stopSpeaking } from '../ui/voice';
+import { useWorkout } from '../ui/useWorkout';
 
 const KEEP_AWAKE_TAG = 'fight';
 const LEVEL_UP_BANNER_MS = 2500;
+const MESSAGE_MS = 3000;
+const EXERCISE_DONE_MESSAGE_MS = 6000;
+/** The review sheet opens once the camera has slid away (iOS can't show two modals at once). */
+const REVIEW_DELAY_MS = 600;
 
 const toWorkInput = (event: RepEvent): WorkInput =>
   event.type === 'reps' ? { kind: 'reps', count: event.count } : { kind: 'seconds', seconds: event.seconds };
+const amountOf = (event: RepEvent) => (event.type === 'reps' ? event.count : event.seconds);
 
-function describe(outcome: WorkResult): string | null {
+function describe(outcome: WorkResult): string[] {
   const parts: string[] = [];
   for (const kill of outcome.kills) {
     parts.push(
@@ -70,11 +79,6 @@ function describe(outcome: WorkResult): string | null {
       `Daily quest complete! +${formatNumber(outcome.questCompleted.rewardXp)} XP · +${formatNumber(outcome.questCompleted.rewardGold)} gold`,
     );
   }
-  if (outcome.record) {
-    parts.push(
-      `🏅 New record: ${formatAmount(outcome.record.exerciseId, outcome.record.amount)} in one set (was ${formatNumber(outcome.record.previous)}) · +${formatNumber(outcome.record.gold)} gold`,
-    );
-  }
   if (outcome.weeklyBossGold !== null) parts.push(`👑 Weekly Titan defeated! +${formatNumber(outcome.weeklyBossGold)} gold`);
   if (outcome.weeklyGoalGold !== null) parts.push(`📅 Weekly goal met! +${formatNumber(outcome.weeklyGoalGold)} gold`);
   for (const step of outcome.skillSteps) {
@@ -82,7 +86,19 @@ function describe(outcome: WorkResult): string | null {
   }
   for (const up of outcome.levelUps) parts.push(`${MUSCLE_NAMES[up.muscle]} reached level ${up.level}!`);
   for (const a of outcome.achievements) parts.push(`🏆 Achievement: ${a.name} · +${formatNumber(a.gold)} gold`);
-  return parts.length > 0 ? parts.slice(-4).join('\n') : null;
+  return parts;
+}
+
+/** End of an exercise: the record (best session) it beat and the achievements that followed. */
+function describeEnd(exerciseId: ExerciseId, total: number, result: ExerciseResult): string[] {
+  const parts = [`✓ Exercise complete: ${formatAmount(exerciseId, total)}`];
+  if (result.record) {
+    parts.push(
+      `🏅 New record: ${formatAmount(exerciseId, result.record.amount)} in one session (was ${formatAmount(exerciseId, result.record.previous)}) · +${formatNumber(result.record.gold)} gold`,
+    );
+  }
+  for (const a of result.achievements) parts.push(`🏆 Achievement: ${a.name} · +${formatNumber(a.gold)} gold`);
+  return parts;
 }
 
 export default function CombatScreen() {
@@ -90,8 +106,8 @@ export default function CombatScreen() {
     state,
     quest,
     settings,
-    openSet,
     work,
+    finishExercise,
     refreshQuest,
     setSessionGoal,
     closeSet,
@@ -104,7 +120,7 @@ export default function CombatScreen() {
   const params = useLocalSearchParams<{ exercise?: string }>();
   const focused = useIsFocused();
   const { frame, enqueue } = useHitQueue();
-  const [lastDone, setLastDone] = useState<Record<string, { day: string; amount: number }>>({});
+  const [lastDone, setLastDone] = useState<Record<string, { day: string; amount: number; best: number; sets: number }>>({});
   const today = toDayKey(new Date());
   // One muscle group per day: the group already trained today stays suggested, otherwise the least recently trained.
   const focus = useMemo(() => todayFocus(lastDone, today), [lastDone, today]);
@@ -120,7 +136,6 @@ export default function CombatScreen() {
     () => sortForBattle(ranking, currentWeakness, settings.favorites).map(getExercise),
     [ranking, currentWeakness, settings.favorites],
   );
-  const [restStartedAt, setRestStartedAt] = useState<number | null>(null);
   const [exerciseId, setExerciseId] = useState<ExerciseId>(() => (exercises[0]?.id as ExerciseId) ?? 'pushup');
   const [guideFor, setGuideFor] = useState<ExerciseId | null>(null);
   const exercise = getExercise(exerciseId);
@@ -138,77 +153,164 @@ export default function CombatScreen() {
     return () => void deactivateKeepAwake(KEEP_AWAKE_TAG).catch(() => {});
   }, [focused]);
 
-  /** Ends the current set and, if the player wants it, starts the rest timer. */
-  const finishSet = () => {
-    closeSet();
-    if (settings.restTimerSeconds > 0) setRestStartedAt(Date.now());
+  // The plan (sets × reps) offered for this exercise: the player's own choice, else a suggestion.
+  const [customPlans, setCustomPlans] = useState<Partial<Record<ExerciseId, { sets: number; perSet: number }>>>({});
+  const last = lastDone[exerciseId];
+  const suggested = useMemo(
+    () =>
+      suggestPlan(exerciseId, quest, last ? { total: last.amount, best: last.best, sets: last.sets } : null, settings.restTimerSeconds),
+    [exerciseId, quest, last, settings.restTimerSeconds],
+  );
+  const custom = customPlans[exerciseId];
+  const plan: WorkoutPlan = custom ? { ...custom, restSeconds: settings.restTimerSeconds } : suggested;
+  const planNote = custom
+    ? 'Your plan'
+    : quest && quest.exerciseId === exerciseId && !quest.completed
+      ? 'From today’s quest'
+      : last
+        ? 'Same as last time'
+        : 'A first plan for you';
+
+  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showMessage = (lines: string[], ms = MESSAGE_MS) => {
+    if (lines.length === 0) return;
+    setMessage(lines.slice(-4).join('\n'));
+    if (messageTimer.current) clearTimeout(messageTimer.current);
+    messageTimer.current = setTimeout(() => setMessage(null), ms);
   };
-  const restTimer =
-    restStartedAt !== null ? (
-      <RestTimer
-        startedAt={restStartedAt}
-        seconds={settings.restTimerSeconds}
-        onDone={() => setRestStartedAt(null)}
-        voice={settings.voiceCount}
-      />
-    ) : null;
-  // Best set to beat during this set: the record as it was when the set started.
-  const setBest =
-    openSet && openSet.exerciseId === exerciseId
-      ? state.recordRun?.setId === openSet.id
-        ? state.recordRun.best
-        : (state.records[exerciseId] ?? 0)
-      : 0;
-  const recordProgress = openSet && openSet.exerciseId === exerciseId ? (
-    <RecordProgress exerciseId={exerciseId} amount={openSet.amount} best={setBest} />
-  ) : null;
-  const hudEnemy = frame.enemy ?? state.enemy;
-  const style = exerciseStyle(exercise);
-  const weakness = (level: number, stage: number) => {
-    const weak = enemyWeakness(level, stage);
-    const hits = weak === style;
-    return (
-      <Text style={[styles.weakness, hits && styles.weaknessHit]}>
-        Weak to {STYLE_NAMES[weak]}
-        {hits ? ` · your exercise hits it: +${Math.round(WEAKNESS.damageBonus * 100)}% damage!` : ''}
-      </Text>
+  const levelUpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Plays the strikes of some work and shows what it earned. Returns the lines to show. */
+  const playOutcome = (outcome: WorkResult, burst: boolean): string[] => {
+    enqueue(outcome.hits, burst);
+    if (outcome.hits.length > 0) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (outcome.levelUps.length > 0) {
+      setLevelUp((prev) => ({ key: (prev?.key ?? 0) + 1, levelUps: outcome.levelUps }));
+      if (levelUpTimer.current) clearTimeout(levelUpTimer.current);
+      levelUpTimer.current = setTimeout(() => setLevelUp(null), LEVEL_UP_BANNER_MS);
+    }
+    return describe(outcome);
+  };
+
+  /** The exercise is over: checks the personal record (best session) and says how it went. */
+  const endExercise = (id: ExerciseId, total: number, lines: string[] = []) => {
+    if (total <= 0) return;
+    finishExercise(id).then(
+      (result) => showMessage([...lines, ...describeEnd(id, total, result)], EXERCISE_DONE_MESSAGE_MS),
+      () => showMessage(lines),
     );
   };
-  const hud = (
-    <View style={styles.hud}>
-      <View style={styles.topRow}>
-        <Text style={styles.hudName} numberOfLines={1}>
-          Lv. {hudEnemy.level} · {enemyName(hudEnemy.level, hudEnemy.stage)}
-          {isBossStage(hudEnemy.stage) ? ' (Boss)' : ''}
-        </Text>
-        <Text style={styles.gold}>🪙 {formatCompact(state.gold)}</Text>
-      </View>
-      <HpBar hp={hudEnemy.hp} maxHp={hudEnemy.maxHp} enemyKey={hudEnemy.level * 1000 + hudEnemy.stage} />
-      <Text style={styles.hp}>
-        {formatNumber(hudEnemy.hp)} / {formatNumber(hudEnemy.maxHp)} HP · {formatNumber(hitDamage(state))} per hit
-      </Text>
-      {weakness(hudEnemy.level, hudEnemy.stage)}
-      <ComboBadge count={state.combo.count} lastHitAt={state.combo.lastHitAt} />
-      {message ? <Text style={styles.message}>{message}</Text> : null}
-      {recordProgress}
-      {restTimer}
-      <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
-    </View>
-  );
-  const { source, controls } = useRepInput({
+
+  // Refs: the rep listener and the workout callbacks always see the latest values.
+  const sourceRef = useRef<RepSource | null>(null);
+  const reviewRef = useRef(false);
+  const handsFreeRef = useRef(false);
+  const exerciseRef = useRef(exerciseId);
+  exerciseRef.current = exerciseId;
+  const planRef = useRef(plan);
+  planRef.current = plan;
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [review, setReview] = useState<SetReview | null>(null);
+  const reviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openReview = (next: SetReview) => {
+    if (reviewTimer.current) clearTimeout(reviewTimer.current);
+    reviewTimer.current = setTimeout(() => setReview(next), REVIEW_DELAY_MS);
+  };
+
+  const workout = useWorkout({
+    voice: settings.voiceCount,
+    autoEndWhenIdle: handsFreeRef.current,
+    onSetDone: () => {
+      sourceRef.current?.endSet();
+      if (!reviewRef.current) closeSet();
+    },
+    onDone: (done: Workout) => {
+      sourceRef.current?.endSet();
+      workout.reset();
+      const amounts = done.amounts.filter((a) => a > 0);
+      if (reviewRef.current) {
+        // Camera: it closes by itself, then the player checks the counts.
+        setCameraOpen(false);
+        openReview({ exerciseId: done.exerciseId, amounts });
+      } else {
+        endExercise(done.exerciseId, amounts.reduce((sum, a) => sum + a, 0));
+      }
+    },
+  });
+
+  const startCamera = () => {
+    workout.start(exerciseId, plan);
+    setCameraOpen(true);
+  };
+  const stopCamera = () => {
+    const current = workout.current();
+    const amounts = workout.stop();
+    setCameraOpen(false);
+    if (current && amounts.length > 0) openReview({ exerciseId: current.exerciseId, amounts });
+  };
+  /** Manual mode: the player stops before the last set. */
+  const endWorkout = () => {
+    const current = workout.current();
+    const amounts = workout.stop();
+    sourceRef.current?.endSet();
+    closeSet();
+    if (current) endExercise(current.exerciseId, amounts.reduce((sum, a) => sum + a, 0));
+  };
+
+  /** The camera counts were checked: now they strike, one set after another. */
+  const confirmReview = (amounts: number[]) => {
+    const checked = review;
+    setReview(null);
+    if (!checked) return;
+    const unit = getExercise(checked.exerciseId).unit;
+    const lines: string[] = [];
+    let total = 0;
+    for (const amount of amounts) {
+      if (amount <= 0) continue;
+      total += amount;
+      const input: WorkInput = unit === 'seconds' ? { kind: 'seconds', seconds: amount } : { kind: 'reps', count: amount };
+      lines.push(...playOutcome(work(checked.exerciseId, input, { newSet: true }), true));
+    }
+    closeSet();
+    showMessage(lines);
+    endExercise(checked.exerciseId, total, lines);
+  };
+
+  const hud = workout.workout ? <WorkoutProgress workout={workout.workout} compact /> : null;
+  const { source, controls, reviewCounts, handsFree } = useRepInput({
     mode: settings.inputMode,
     exerciseId,
     active: focused,
     repsPerPress: settings.repsPerPress,
     onRepsPerPressChange: (repsPerPress) => updateSettings({ repsPerPress }),
-    hud,
+    cameraRunning: cameraOpen,
+    onCameraStart: startCamera,
+    onCameraStop: stopCamera,
+    cameraOverlay: hud,
     hideCameraImage: settings.hideCameraImage,
     onHideCameraImageChange: (hideCameraImage) => updateSettings({ hideCameraImage }),
-    onSetDone: finishSet,
     calibrations,
     onCalibrated: setCalibration,
     largeButtons: settings.largeButtons,
   });
+  sourceRef.current = source;
+  reviewRef.current = reviewCounts;
+  handsFreeRef.current = handsFree;
+
+  // Leaving the tab closes the camera: what was counted is checked on return.
+  useEffect(() => {
+    if (!focused && cameraOpen) stopCamera();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focused]);
+  // Switching between camera and manual mode ends the exercise in progress (manual sets already count).
+  const previousMode = useRef(settings.inputMode);
+  useEffect(() => {
+    if (previousMode.current === settings.inputMode) return;
+    const wasManual = previousMode.current === 'manual';
+    previousMode.current = settings.inputMode;
+    if (wasManual && workout.current()) endWorkout();
+    else workout.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.inputMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -219,10 +321,12 @@ export default function CombatScreen() {
       cancelled = true;
     };
   }, [repository, dataVersion]);
-  const messageTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const selectExercise = (id: ExerciseId) => {
     if (id === exerciseId) return;
+    // Changing exercise ends the one in progress (manual mode: its sets already count).
+    if (workout.current() && !reviewRef.current) endWorkout();
+    else workout.reset();
     closeSet();
     setExerciseId(id);
   };
@@ -247,39 +351,30 @@ export default function CombatScreen() {
   }, [exercises]);
 
   // The combat screen only knows the RepSource interface, never its implementation.
-  const exerciseRef = useRef(exerciseId);
-  exerciseRef.current = exerciseId;
-  const voiceRef = useRef(settings.voiceCount);
-  voiceRef.current = settings.voiceCount;
-  const levelUpTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(
     () =>
       source.subscribe((event) => {
-        const outcome = work(exerciseRef.current, toWorkInput(event));
-        enqueue(outcome.hits, event.type === 'reps' && event.burst);
-        if (outcome.hits.length > 0) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-        if (voiceRef.current) {
-          const phrase = voiceCountPhrase(getExercise(exerciseRef.current).unit, outcome.setAmount - outcome.amount, outcome.setAmount);
-          if (phrase) say(phrase);
+        const amount = amountOf(event);
+        if (reviewRef.current) {
+          // Counted now, applied after the player checks the counts. Moving around during the rest doesn't count.
+          if (workout.current()?.phase === 'work') workout.add(amount);
+          return;
         }
-        if (outcome.levelUps.length > 0) {
-          setLevelUp((prev) => ({ key: (prev?.key ?? 0) + 1, levelUps: outcome.levelUps }));
-          if (levelUpTimer.current) clearTimeout(levelUpTimer.current);
-          levelUpTimer.current = setTimeout(() => setLevelUp(null), LEVEL_UP_BANNER_MS);
+        const current = workout.current();
+        if (!current || current.phase === 'done' || current.exerciseId !== exerciseRef.current) {
+          workout.start(exerciseRef.current, planRef.current);
         }
-        const text = describe(outcome);
-        if (text) {
-          setMessage(text);
-          if (messageTimer.current) clearTimeout(messageTimer.current);
-          messageTimer.current = setTimeout(() => setMessage(null), 3000);
-        }
+        showMessage(playOutcome(work(exerciseRef.current, toWorkInput(event)), event.type === 'reps' && event.burst));
+        workout.add(amount);
       }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [source, work, enqueue],
   );
   useEffect(
     () => () => {
       if (messageTimer.current) clearTimeout(messageTimer.current);
       if (levelUpTimer.current) clearTimeout(levelUpTimer.current);
+      if (reviewTimer.current) clearTimeout(reviewTimer.current);
       stopSpeaking();
     },
     [],
@@ -290,7 +385,7 @@ export default function CombatScreen() {
     updateSettings({
       favorites: isFavorite ? settings.favorites.filter((f) => f !== exerciseId) : [...settings.favorites, exerciseId],
     });
-  const last = lastDone[exerciseId];
+  const record = state.sessionRecords[exerciseId];
   const lastDoneText = last
     ? `Last time: ${formatAmount(exerciseId, last.amount)} · ${last.day === today ? 'today' : formatDayShort(last.day)}`
     : 'Never done yet — take it easy the first time.';
@@ -311,7 +406,9 @@ export default function CombatScreen() {
           selectExercise(harder);
         }}
       >
-        <Text style={styles.howTo}>{harderOffered ? 'Try it →' : `Unlock (${getExercise(harder).tier} mode) →`}</Text>
+        <Text style={styles.howTo}>
+          {harderOffered ? 'Try it →' : `Unlock (${DIFFICULTY_NAMES[getExercise(harder).tier]} mode) →`}
+        </Text>
       </Pressable>
     </View>
   ) : null;
@@ -322,6 +419,10 @@ export default function CombatScreen() {
   const boss = isBossStage(enemy.stage);
   const zone = zoneForLevel(enemy.level);
   const weaponTier = WEAPONS.findIndex((w) => w.id === state.weaponId);
+  const weak = enemyWeakness(enemy.level, enemy.stage);
+  const hitsWeakness = weak === exerciseStyle(exercise);
+  // Manual mode: the exercise in progress replaces the plan until it is over.
+  const inProgress = workout.workout !== null && !reviewCounts ? workout.workout : null;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -343,7 +444,10 @@ export default function CombatScreen() {
                 {formatNumber(enemy.hp)} / {formatNumber(enemy.maxHp)} HP
               </Text>
             </View>
-            {weakness(enemy.level, enemy.stage)}
+            <Text style={[styles.weakness, hitsWeakness && styles.weaknessHit]}>
+              Weak to {STYLE_NAMES[weak]}
+              {hitsWeakness ? ` · your exercise hits it: +${Math.round(WEAKNESS.damageBonus * 100)}% damage!` : ''}
+            </Text>
           </View>
 
           <View>
@@ -378,7 +482,7 @@ export default function CombatScreen() {
             {exercises.map((e) => {
               const selected = e.id === exerciseId;
               const pinned = settings.favorites.includes(e.id as ExerciseId);
-              const suggested = exerciseStyle(e) === suggestedStyle;
+              const suggestedChip = exerciseStyle(e) === suggestedStyle;
               return (
                 <Pressable
                   key={e.id}
@@ -387,7 +491,7 @@ export default function CombatScreen() {
                   accessibilityState={{ selected }}
                   style={[
                     styles.chip,
-                    suggested && styles.chipSuggested,
+                    suggestedChip && styles.chipSuggested,
                     selected && styles.chipSelected,
                     settings.largeButtons && styles.chipLarge,
                   ]}
@@ -413,36 +517,41 @@ export default function CombatScreen() {
           </View>
           <Text style={styles.muted}>
             {lastDoneText}
-            {state.records[exerciseId] ? ` · Record: ${formatAmount(exerciseId, state.records[exerciseId]!)} in one set` : ''}
+            {record ? ` · Record: ${formatAmount(exerciseId, record.amount)} in one session` : ''}
           </Text>
 
           {tierUp}
 
-          {restTimer}
-          {controls}
-
-          {openSet ? (
-            <View style={styles.setBox}>
-              <Text style={styles.setText}>
-                Current set: <Text style={styles.setAmount}>{formatAmount(openSet.exerciseId, openSet.amount)}</Text> ·{' '}
-                {formatNumber(openSet.damage)} damage
-              </Text>
-              {recordProgress}
-              <GoldButton
-                label="Finish set"
-                variant="stone"
-                onPress={finishSet}
-                style={settings.largeButtons ? styles.largeButton : undefined}
+          {inProgress ? (
+            <>
+              <WorkoutProgress
+                workout={inProgress}
+                onFinishSet={workout.finishSet}
+                onEnd={endWorkout}
+                onSkipRest={workout.skipRest}
+                largeButtons={settings.largeButtons}
               />
-            </View>
+              <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
+            </>
           ) : (
+            <PlanCard
+              exerciseId={exerciseId}
+              plan={plan}
+              onChange={({ sets, perSet }) => setCustomPlans((plans) => ({ ...plans, [exerciseId]: { sets, perSet } }))}
+              onRestChange={(restTimerSeconds) => updateSettings({ restTimerSeconds })}
+              voice={settings.voiceCount}
+              onVoiceChange={setVoiceCount}
+              note={planNote}
+            />
+          )}
+          {controls}
+          {!inProgress && !reviewCounts ? (
             <Text style={[styles.muted, styles.center]}>
               {exercise.unit === 'seconds'
                 ? 'Hold the position: one sword strike every few seconds.'
                 : 'Every rep is a sword strike.'}
             </Text>
-          )}
-          <VoiceToggle value={settings.voiceCount} onChange={setVoiceCount} />
+          ) : null}
 
           <WeeklyGoalCard state={state} today={today} />
           <DailyQuestCard quest={quest} state={state} selected={exerciseId} onSelect={selectExercise} onHowTo={setGuideFor} />
@@ -450,6 +559,7 @@ export default function CombatScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
       <ExerciseGuideModal exerciseId={guideFor} onClose={() => setGuideFor(null)} />
+      <SetReviewModal key={review ? `${review.exerciseId}-${review.amounts.join()}` : 'none'} review={focused ? review : null} onConfirm={confirmReview} />
     </SafeAreaView>
   );
 }
@@ -459,8 +569,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   content: { padding: spacing.lg, gap: spacing.md, paddingBottom: spacing.xl * 2 },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  hud: { backgroundColor: 'rgba(27,21,16,0.72)', borderRadius: radius.md, padding: spacing.sm, gap: 4 },
-  hudName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 15, flexShrink: 1 },
   zone: { color: colors.gold, fontFamily: fonts.title, fontSize: 14, letterSpacing: 1 },
   gold: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16 },
   enemyHeader: { gap: spacing.xs },
@@ -472,15 +580,6 @@ const styles = StyleSheet.create({
   hp: { color: colors.textMuted, fontSize: 13, textAlign: 'right', fontVariant: ['tabular-nums'] },
   hpRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: spacing.sm },
   damageValue: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 16 },
-  setBox: {
-    gap: spacing.sm,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.stone,
-  },
-  setAmount: { color: colors.goldLight, fontFamily: fonts.titleBold, fontSize: 18 },
   center: { textAlign: 'center' },
   tierUp: {
     flexDirection: 'row',
@@ -510,10 +609,8 @@ const styles = StyleSheet.create({
   chipTextSelected: { color: colors.ink },
   chipLarge: { paddingHorizontal: spacing.lg, paddingVertical: spacing.md },
   chipTextLarge: { fontSize: 17 },
-  largeButton: { paddingVertical: spacing.lg },
   exerciseRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: spacing.md },
   exerciseName: { color: colors.parchment, fontFamily: fonts.titleBold, fontSize: 18, flexShrink: 1, flex: 1 },
   howTo: { color: colors.goldLight, fontFamily: fonts.title, fontSize: 14 },
-  setText: { color: colors.text, fontSize: 15 },
   muted: { color: colors.textMuted, fontSize: 14 },
 });

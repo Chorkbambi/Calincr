@@ -26,8 +26,8 @@ Reps are counted by the camera (pose detection on the phone) or by hand.
   (`restoreState`, `restoreSettings`). SQL queries are always parameterized.
 - The camera is switched off as soon as the Fight tab is left (the WebView is unmounted).
 - First launch: welcome screen (`WelcomeModal`, tutorial then camera or manual choice), `onboardingVersion` setting.
-- "Image on/off" button on the full-screen camera: shows only the skeleton on black (`hideCameraImage` setting,
-  `window.__setHideVideo` in the page). Permanent "🔒 Not recorded" badge.
+- "Image on/off" button on the camera preparation screen (not on the camera itself): shows only the skeleton on black
+  (`hideCameraImage` setting, `window.__hideVideo` injected before the page loads). Permanent "🔒 Not recorded" badge.
 - Privacy policy: `src/ui/content/privacyPolicy.ts` (shown in Settings and on the welcome screen),
   copied in `PRIVACY.md` — keep both identical. The repository is **public**: never put secrets in it
   (keys, tokens, keystore); the GitHub URL of `PRIVACY.md` serves as the public page for the stores.
@@ -91,14 +91,15 @@ src/
     engine.ts        GameState, damage, applyWork() (reps/seconds → hits + XP + gold), weekly boss
     shop.ts          buying / equipping swords, armor, rings, cosmetics, Streak Freeze
     styles.ts        exercise style (push/pull/legs/core), enemy weaknesses, gear effects
-    records.ts       personal records (best set per exercise)
+    records.ts       personal records (best session per exercise, checked at the end) + best set (skills)
     settings.ts      settings (camera/manual mode, difficulty, reps per press…) + validation
     sets.ts          aggregation of recorded sets
     stats.ts         calendar: volume, intensity, weekly/monthly totals, weekly progress, best-set trend, month summary
     recommend.ts     exercises ranked by rest bonus
     quest.ts         daily quest: exercise, history-based target, reward, session goal, comeback
     weeklyGoal.ts    weekly goal (training days per week), weekly streak, streak freezes
-    skills.ts        progression chains (next harder variation) and long-term skills, from records
+    skills.ts        progression chains (next harder variation) and long-term skills, from best sets
+    workout.ts       workout plan (sets × reps × rest) and its progress: auto end of set, rest, idle end, review
     voice.ts         voice count phrases
     achievements.ts  achievements (progress, gold reward per tier)
     recap.ts         last week's recap
@@ -114,20 +115,25 @@ src/
     RepSource.ts         RepSource interface ('reps' and 'seconds' events)
     CameraRepSource.ts   camera mode (default); camera/ = WebView page + component
     ManualRepSource.ts   manual mode: Rep button (× reps per press), timer, fake "Undo"
-                         (camera mode also has correction buttons: CameraRepSource.addManually)
+                         (camera mode: counts are checked on SetReviewModal after the camera closes)
+                         RepSource.endSet(): stop the stopwatch / reset the pose counter between sets
     useRepInput.tsx      picks the implementation from the settings
   notifications/ local daily reminder (loaded lazily, errors ignored)
   storage/     expo-sqlite: migrations (database.ts) and GameRepository (the only place that knows the schema)
   state/       GameProvider (React context): applies the logic, saves, exposes the state to the screens
-  ui/          theme, formatting, components (BattleArena, ZoneBackdrop, EnemyFigure, SwordFigure, BodyMap, WelcomeModal,
-               WeeklyRecapModal, RestTimer, ComboBadge, AchievementsPanel, BackupPanel, WeeklyBossBar,
-               ProgressChart, ExerciseProgressPanel, ShareCardModal…)
+  ui/          theme, formatting, useWorkout (drives a workout: auto rest, voice), components (BattleArena, ZoneBackdrop,
+               EnemyFigure, SwordFigure, BodyMap, WelcomeModal, WeeklyRecapModal, PlanCard, WorkoutProgress, RestTimer,
+               SetReviewModal, ComboBadge, AchievementsPanel, BackupPanel, WeeklyBossBar, ProgressChart,
+               ExerciseProgressPanel, ShareCardModal…)
   app/         Expo Router screens: index (Fight), character (Hero), shop, calendar, settings
 ```
 
-Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GameProvider`'s `work()`
-→ `applyWork()` (pure) returns the new state + the hits → queued SQLite save
-→ `useHitQueue` replays the hits as animations (sped up for several reps at once).
+Flow of a rep: `RepSource` emits an event → the Fight screen counts it in the workout (`useWorkout`, which ends the
+set at its target and starts the rest) → manual mode: right away, the `GameProvider`'s `work()` → `applyWork()`
+(pure) returns the new state + the hits → queued SQLite save → `useHitQueue` replays the hits as animations.
+Camera mode (`RepInput.reviewCounts`): nothing is applied while the camera is open; when it closes, `SetReviewModal`
+lets the player fix each set's count, then each set goes through `work(…, { newSet: true })` (combo broken between
+sets) and plays as a burst. At the end of an exercise `finishExercise()` checks the personal record.
 
 **The Fight screen depends only on the `RepSource` interface**, never on an implementation.
 
@@ -136,8 +142,9 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - 10 muscles, all level 1 at the start. Starting sword: Rusty Sword ×1.
 - **Damage of a hit** = sum of all muscle levels × sword multiplier.
 - Each exercise gives base XP per rep (per second for holds), split between muscles by weights that total 1.0.
-- **Difficulty** (setting): Beginner = simplified exercises; Normal = classic exercises; Advanced = Normal + hard ones.
-  Each mode covers all 10 muscles.
+- **Difficulty** (setting): Beginner = simplified exercises; Intermediate (id `normal`) = classic exercises; Expert
+  (id `advanced`) = classic + hard ones. Each mode covers all 10 muscles. Names in `DIFFICULTY_NAMES`; the ids never
+  change (saves).
 - **XP curve**: `xpForNextLevel(level) = round(50 × level^1.6)`. Extra XP carries over to the next level.
 - **Rest (per muscle)**, computed at the first session of the day then frozen for the day:
   - first session ever for this muscle: ×1.0
@@ -160,9 +167,10 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
 - **Daily quest** (Fight screen, `src/game/quest.ts`): ONE exercise suggested per day (the app motivates, it doesn't
   coach): the first suggestion (least recently trained group, then the most rested muscles of that group).
   Target = total of the last session of that exercise + 10% (at least +1 rep / +5 s), read over a year of history
-  (× 0.8 after 10 days without, × 0.6 after 30), × 0.7 if the muscles are tired. Never done: estimated from the most
-  recent sibling exercise (same group, same unit) scaled by base XP, else a starting value per tier. The quest keeps
-  the player's own number of sets (sets under half the day's best set don't count): 3 × 15 → 3 × 17.
+  (× 0.8 after 10 days without, × 0.6 after 30), × 0.7 if the muscles are tired, never below `QUEST.minTarget` (per
+  tier). Never done: estimated from the most recent sibling exercise (same group, same unit) scaled by base XP, else
+  a starting value per tier. The quest keeps the player's own number of sets (sets under half the day's best set don't
+  count): 3 × 15 → 3 × 17, but never sets under `QUEST.minPerSet` (fewer, bigger sets instead: never 3 × 2).
   Reward on completion: bonus XP (target × base XP × 0.5, no multiplier) + gold (1.5 × HP of the level's first
   monster). Generated once a day, saved (kv `daily_quest`).
 - **Session goal** (`askSessionGoal` setting, on by default): before the first rep of the day's quest, "How much time
@@ -173,8 +181,12 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
   N different days a week (1-7, default 3, Settings). Meeting it pays gold and adds a week to the streak; rest days
   never break it. A missed week resets the streak unless streak freezes cover it (one per week). Achievements
   "Unbreakable"/"Unstoppable" = 4 / 12 weeks in a row. `DailyQuest.streak`/`freezesUsed` are kept only for old saves.
-- **Record in sight** (`RecordProgress`): during a set, bar towards the best set as it was when the set started
-  ("Record in 3 reps!", "New record!"), also in the camera HUD.
+- **Workout plan** (`workout.ts`, `PlanCard`, `useWorkout`): before an exercise the player picks sets × reps (or
+  seconds) and the rest (the `restTimerSeconds` setting). Suggested: the quest's sets for the quest exercise, else the
+  last session (leftover mini-sets ignored), else a starting plan per tier. A set ends by itself at its target (camera
+  also after `WORKOUT.idleEndSeconds` without a rep), the rest countdown starts on its own, then the next set; work
+  during a manual rest starts the next set early, camera reps during a rest are ignored. Manual: "Finish set" /
+  "End exercise" buttons. Changing exercise ends the one in progress.
 - **Harder variation** (`PROGRESSIONS`, `TIER_UP`, `nextVariation`): best set ≥ 15 reps / 60 s → "ready for X?"
   with Try it (or unlock the difficulty mode that offers it).
 - **Skills** (`SKILLS`, Hero screen): 8 long-term goals, each a chain of best sets to reach (first pull-up, pistol
@@ -183,40 +195,49 @@ Flow of a rep: `RepSource` emits an event → the Fight screen calls the `GamePr
   that month (against earlier months), shareable card. The progress panel shows the best-set trend over 12 weeks.
 - **Manual mode**: the Rep button adds "reps per press" (1 to 50). The Undo button undoes nothing: it shows
   "Made a mistake? Too bad — you'll have to make up for it!" (on purpose).
-- **Camera mode**: manual correction possible (+1 / +5 reps, +5 / +15 s for holds) if the camera misses reps;
-  same fake Undo. Camera mode works offline (bundled MediaPipe).
+- **Camera mode**: no buttons on the camera but "✕ Stop" (no +1/+5/Undo, no Image, no Rotate, no weakness or enemy
+  HUD): only the image, the count (set x/y, reps / target) and the rest countdown. When it closes (last set done,
+  Stop, tab left), `SetReviewModal` shows each set's count: the player can add or remove, then confirms; only then
+  does the work count in the game. Camera mode works offline (bundled MediaPipe).
 - **Camera**: starts only after "Start camera" for the chosen exercise (preparation screen saying which body parts
-  must be visible, `src/pose/visibility.ts`). It opens full screen, whole image (not cropped), with a Rotate
-  button (landscape); it stops when the exercise changes, the tab is left or Stop is pressed.
-  The app is locked in portrait (expo-screen-orientation) except the full-screen camera.
+  must be visible, `src/pose/visibility.ts`, Image on/off, Calibrate). It opens full screen, whole image (not
+  cropped); while open the orientation is unlocked so it follows the phone (portrait or sideways). It stops when the
+  workout ends, the tab is left or Stop is pressed. The app is locked in portrait (expo-screen-orientation) except
+  while the camera is open. "Calibrate" opens the camera for the calibration only, then closes it.
 - **Combo**: hits less than 10 s apart chain; +5% damage every 5 hits, capped at +50% (`COMBO`).
 - **Weaknesses**: an exercise's style = the group (push/pull/legs/core) receiving the most XP weight; each enemy
   fears one style (`enemyWeakness`) → +50% damage (`WEAKNESS`). Every difficulty covers the 4 styles (tested).
 - **Weekly Titan** (`WEEKLY_BOSS`): created at the first hit of the week, HP = damage per hit × 300 (min. 300),
   every hit damages it; reward = HP of the level's first monster × 10 (min. 100).
-- **Records**: best set per exercise; beating it (not the first time) pays gold once per set (`RECORDS`).
-  Records are seeded from the history on load (`seedRecords`).
+- **Records**: best session per exercise (`sessionRecords`: the day's total of all its sets), checked when the
+  exercise is finished (`checkSessionRecord`, via `finishExercise`), never rep by rep. Beating the best of an earlier
+  day (not the first time) pays gold once a day per exercise (`RECORDS`). The best single set (`records`) is still
+  kept silently for skills and harder variations. Both are seeded from the history on load (`seedRecords`; sessions
+  from days before today only).
 - **Streak Freeze** (`STREAK_FREEZE`): 2 max, price = HP of the first monster × 3; used automatically (one per
   missed week) when the weekly streak is > 0 (`rollWeeklyGoal`).
 - **Gear** (`GEAR`): one armor (+gold) and one ring (combo window, combo cap, weakness bonus).
   **Cosmetics** (`COSMETICS`): sword glow and damage number colour, purely visual.
 - **Achievements** (`achievements.ts`): 20 achievements, gold reward = HP of the level's first monster × 2 / 5 / 12
   by tier (min. 20). Lifetime stats in `GameState.lifetime`.
-- **Rest timer**: after "Finish set", countdown (off / 30 / 60 / 90 / 120 s), asked at first launch.
+- **Rest timer**: starts by itself when a set ends (off / 30 / 60 / 90 / 120 s, also on the plan card), asked at
+  first launch; vibrates when it ends. Shown on the Fight screen (manual) or on the camera.
 - **Favourites**: pinned exercises first in the list; "Last time" shows the last session of each exercise.
 - **Weekly recap**: shown once at the first launch of a new week (if there was any training).
-- **First launch**: 3 tutorial screens then camera/manual choice and rest timer. `ONBOARDING_VERSION` (settings.ts):
-  bump it to show the tutorial to everyone again.
+- **First launch**: 3 tutorial screens then level (Beginner / Intermediate / Expert), camera/manual choice and rest
+  timer. `ONBOARDING_VERSION` (settings.ts, 3): bump it to show the tutorial to everyone again.
 - **Completely free**: no purchase, no donation button, no ads.
 - **Accessibility**: "Large buttons" setting; text follows the phone's font size.
 - **Screen kept awake** on the Fight tab only (expo-keep-awake, tag `fight`), released when the tab is left.
-- **Voice count** (`voiceCount` setting, off by default; 🔊 toggle on the Fight screen, in the camera HUD and in Settings):
-  expo-speech says the set's rep total after each rep (holds: every `VOICE.holdStepSeconds`) and "Rest over" at the end
-  of the rest timer. Nothing else is spoken. Phrases in `src/game/voice.ts`.
+- **Voice count** (`voiceCount` setting, off by default; 🔊 toggle on the plan card and in Settings): expo-speech says
+  the set's rep total after each rep (holds: every `VOICE.holdStepSeconds`), "Set 1 done. Rest, 1 minute." when a
+  rest starts, "Rest over. Set 2 of 3, go!" when it ends and "Exercise complete" after the last set. Nothing else is
+  spoken. Phrases in `src/game/voice.ts`.
 - **Level-up banner** (`LevelUpBanner`): "LEVEL UP!" over the arena with the muscles gained and the new damage per hit.
-- **Fight screen order**: enemy (HP + damage per hit on one line), arena, session goal (once a day), exercise list,
-  harder-variation hint, controls, current set (+ record bar), voice toggle, weekly goal, daily quest (one line once
-  completed), Weekly Titan.
+- **Fight screen order**: enemy (HP + damage per hit on one line, weakness), arena, session goal (once a day), exercise
+  list, last time + record, harder-variation hint, plan card (or, manual mode during an exercise, its progress with
+  the rest timer), controls (camera preparation or Rep button), weekly goal, daily quest (one line once completed),
+  Weekly Titan.
 - **How to**: each exercise has an animation (SVG stick figure, `src/ui/exerciseAnimations.ts`: 2 interpolated poses).
 
 ## Conventions
@@ -240,17 +261,18 @@ Choices made where the request was ambiguous (the simplest ones):
 2. **Base XP per exercise**: invented values (4 to 18 XP/rep depending on difficulty, 1.5 to 3 XP/s for holds). To be tested.
 3. **Holds**: 1 sword hit every 5 s held. Remaining seconds carry over to the next hold.
 4. **Lunges, single-leg exercises**: one rep = one side.
-5. **Set**: stays open while the same exercise is kept on the same day; closed by "Finish set", an exercise change or an app restart.
+5. **Set**: ends at the plan's target (or "Finish set", camera: 20 s without a rep), an exercise change or an app restart.
 6. **Overkill damage**: not carried over to the next enemy.
 7. **Set crossing midnight**: starts a new set (the multiplier is recomputed each day).
 8. **Clock moved back**: the already frozen multiplier is kept, no penalty.
 9. **Calendar intensity**: volume = reps + hold seconds / 5; thresholds 1 / 40 / 100 / 200.
 10. **Weeks**: Monday to Sunday.
 11. **Daily quest**: exercise chosen by group rest then rest bonus, not raw XP (otherwise the hardest exercise would always be suggested). Tie → more XP per rep; groups tied on a fresh game → push first.
-12. **Difficulty**: Advanced also shows Normal exercises (squats, push-ups…), Beginner only the simplified ones. Default: Normal.
+12. **Difficulty**: Expert also shows Intermediate exercises (squats, push-ups…), Beginner only the simplified ones. Default: Intermediate.
 13. **Camera mode by default**; manual mode is a setting. Changing exercise closes the set.
 14. **Camera detection**: WebView + MediaPipe Pose Landmarker "lite" (tasks-vision 1.0.1, float16/1 model), bundled in the app (no download: avoids App Store rule 2.5.2 on downloaded code). Only the WebAssembly SIMD build is included (iOS 16.4+ / recent Android WebView); otherwise the app offers manual mode. Detection thresholds per exercise in `src/pose/trackers.ts`; some exercises (calf raises, supermans, nordic curls) are hard to detect and need testing.
 15. **No quality bonus**: a rep counts only if the full range of motion is reached (thresholds), otherwise nothing. No partial XP.
-16. **Swords**: fixed list of 9 swords (×1 to ×25). No new weapon beyond that for now.
+16. **Swords**: fixed list of 9 swords (×1 to ×25), 800 to 15,000,000 gold: a solid first workout (~600 gold) is not
+    enough for the second one.
 17. **Old saves**: muscle levels are kept, enemies restart at level 1.
 18. **npm vulnerabilities**: `npm audit` reports "moderate" issues in Expo dependencies (build tools, and `decode-uri-component` via expo-router, only exploitable through a malformed deep link). Fixed on Expo's side; don't run `npm audit fix --force` (it would break the SDK 57 versions).

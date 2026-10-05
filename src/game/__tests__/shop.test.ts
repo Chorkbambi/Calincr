@@ -17,7 +17,7 @@ describe('shop', () => {
   });
 
   it('buys, pays and equips a sword', () => {
-    const rich = { ...createInitialState(), gold: 150 };
+    const rich = { ...createInitialState(), gold: 850 };
     const result = buyWeapon(rich, 'iron_sword');
     if (!('state' in result)) throw new Error('purchase failed');
     expect(result.state.gold).toBe(50);
@@ -35,9 +35,23 @@ describe('shop', () => {
 
   it('pays for swords with gold earned from kills', () => {
     let state = createInitialState();
-    for (let i = 0; i < 20 && state.gold < 100; i++) state = applyWork(state, 'squat', { kind: 'reps', count: 10 }, new Date(2026, 2, 10)).state;
-    expect(state.gold).toBeGreaterThanOrEqual(100);
+    const price = WEAPONS[1]!.price;
+    for (let i = 0; i < 40 && state.gold < price; i++) state = applyWork(state, 'squat', { kind: 'reps', count: 10 }, new Date(2026, 2, 10)).state;
+    expect(state.gold).toBeGreaterThanOrEqual(price);
     expect('state' in buyWeapon(state, 'iron_sword')).toBe(true);
+  });
+
+  it('keeps the second sword out of reach of a single first workout', () => {
+    // A solid first day: 3 exercises × 3 sets of 10, with the combo broken by the rests.
+    let state = createInitialState();
+    let t = new Date(2026, 2, 10, 18).getTime();
+    for (const exercise of ['pushup', 'squat', 'inverted_row'] as const) {
+      for (let set = 0; set < 3; set++) {
+        t += 120_000;
+        state = applyWork(state, exercise, { kind: 'reps', count: 10 }, new Date(t)).state;
+      }
+    }
+    expect(state.gold).toBeLessThan(WEAPONS[1]!.price);
   });
 });
 

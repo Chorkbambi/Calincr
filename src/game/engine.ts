@@ -17,6 +17,7 @@ import {
 import { startOfWeek, toDayKey, type DayKey } from './dates';
 import { createEnemy, enemyMaxHp, goldReward, isBossStage, nextEnemy, type EnemyState } from './enemy';
 import { getExercise, muscleWeights } from './exercises';
+import type { SessionRecord } from './records';
 import { addXp } from './progression';
 import { INITIAL_RECOVERY, recoveryForSession, type RecoveryState } from './recovery';
 import { getWeapon } from './shop';
@@ -50,10 +51,10 @@ export interface GameState {
   streakFreezes: number;
   /** Training days wanted per week and the weekly streak. */
   weekly: WeeklyGoalState;
-  /** Best set ever per exercise (reps, or seconds for holds). */
+  /** Best single set ever per exercise (reps, or seconds for holds): skills and harder variations. */
   records: Partial<Record<ExerciseId, number>>;
-  /** Record in progress: the best set before the current set started (so a record is paid once per set). */
-  recordRun: { setId: string; exerciseId: ExerciseId; best: number; rewarded: boolean } | null;
+  /** Personal records: best session (one day, all sets) per exercise, checked when the exercise is finished. */
+  sessionRecords: Partial<Record<ExerciseId, SessionRecord>>;
   weeklyBoss: WeeklyBossState | null;
 }
 
@@ -113,7 +114,7 @@ export function createInitialState(): GameState {
     streakFreezes: 0,
     weekly: { ...INITIAL_WEEKLY_GOAL },
     records: {},
-    recordRun: null,
+    sessionRecords: {},
     weeklyBoss: null,
   };
 }
@@ -121,6 +122,11 @@ export function createInitialState(): GameState {
 /** Damage bonus for a combo of `count` chained hits (0.1 = +10%). `extraCap` comes from a ring. */
 export function comboBonus(count: number, extraCap = 0): number {
   return Math.min(COMBO.maxBonus + extraCap, Math.floor(count / COMBO.hitsPerStep) * COMBO.bonusPerStep);
+}
+
+/** A new set starts after a rest: the combo of the previous set is over. */
+export function breakCombo(state: GameState): GameState {
+  return state.combo.count === 0 ? state : { ...state, combo: { count: 0, lastHitAt: 0 } };
 }
 
 export function totalLevels(state: GameState): number {

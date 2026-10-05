@@ -54,7 +54,8 @@ export function ExerciseProgressPanel({ today }: { today: DayKey }) {
   const format = (v: number) => formatAmount(exerciseId, Math.round(v));
   const points = (key: 'volume' | 'best') =>
     weeks.map((w) => ({ label: formatDayShort(w.weekStart), title: `Week of ${formatDayShort(w.weekStart)}`, value: w[key] }));
-  const record = state.records[exerciseId];
+  const record = state.sessionRecords[exerciseId]?.amount;
+  const bestSet = state.records[exerciseId];
   const unit = EXERCISES.find((e) => e.id === exerciseId)?.unit === 'seconds' ? 'seconds' : 'reps';
 
   return (
@@ -77,7 +78,11 @@ export function ExerciseProgressPanel({ today }: { today: DayKey }) {
           );
         })}
       </ScrollView>
-      {record ? <Text style={styles.record}>🏅 Record: {format(record)} in one set</Text> : null}
+      {record ? (
+        <Text style={styles.record}>
+          🏅 Record: {format(record)} in one session{bestSet ? ` · best set ${format(bestSet)}` : ''}
+        </Text>
+      ) : null}
       {trend ? (
         <Text style={[styles.trend, trend.change < 0 && styles.trendDown]}>
           {trend.change >= 0 ? '📈' : '📉'} Best set: {format(trend.first)} → {format(trend.last)} (

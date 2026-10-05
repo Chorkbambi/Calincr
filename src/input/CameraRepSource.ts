@@ -101,11 +101,9 @@ export class CameraRepSource extends BaseRepSource {
     return msg;
   }
 
-  /** Manual correction when the camera missed some reps (or seconds of a hold). */
-  addManually(amount: number, unit: 'reps' | 'seconds'): void {
-    const n = Math.floor(amount);
-    if (!(n > 0)) return;
-    this.emit(unit === 'reps' ? { type: 'reps', count: n, burst: n > 1 } : { type: 'seconds', seconds: n });
+  /** Next set: a movement half-done during the rest must not count as its first rep. */
+  override endSet(): void {
+    this.counter = new RepCounter(trackerFor(this.exerciseId, this.calibrations));
   }
 
   /** Back to "loading" when the camera page is (re)started. */

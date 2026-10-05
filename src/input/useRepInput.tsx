@@ -11,8 +11,15 @@ import type { RepSource } from './RepSource';
 
 export interface RepInput {
   source: RepSource;
-  /** UI the source needs on screen (camera preview or buttons). */
+  /** UI the source needs on screen (camera setup or buttons). */
   controls: ReactElement;
+  /**
+   * True when counts are checked by the player at the end of the exercise (camera): the work is applied
+   * after that check, not rep by rep. False when every press counts right away (manual).
+   */
+  reviewCounts: boolean;
+  /** Counting happens away from the phone: a set with no new rep for a while ends by itself. */
+  handsFree: boolean;
 }
 
 /**
@@ -25,10 +32,12 @@ export function useRepInput({
   active,
   repsPerPress,
   onRepsPerPressChange,
-  hud,
+  cameraRunning,
+  onCameraStart,
+  onCameraStop,
+  cameraOverlay,
   hideCameraImage,
   onHideCameraImageChange,
-  onSetDone,
   calibrations,
   onCalibrated,
   largeButtons,
@@ -39,12 +48,15 @@ export function useRepInput({
   active: boolean;
   repsPerPress: number;
   onRepsPerPressChange: (value: number) => void;
-  /** Fight info shown over the full-screen camera. */
-  hud?: ReactNode;
+  /** Camera mode: a workout is in progress, the camera is open. */
+  cameraRunning: boolean;
+  onCameraStart: () => void;
+  /** The player closed the camera before the end of the workout. */
+  onCameraStop: () => void;
+  /** Workout progress shown over the full-screen camera. */
+  cameraOverlay?: ReactNode;
   hideCameraImage: boolean;
   onHideCameraImageChange: (hide: boolean) => void;
-  /** Camera mode: the player says a set is finished. */
-  onSetDone: () => void;
   calibrations: Calibrations;
   onCalibrated: (exerciseId: ExerciseId, tracker: TrackerConfig | null) => void;
   largeButtons: boolean;
@@ -61,24 +73,29 @@ export function useRepInput({
   if (mode === 'camera') {
     return {
       source: camera,
+      reviewCounts: true,
+      handsFree: true,
       controls: (
         <CameraRepControls
           source={camera}
           exerciseId={exerciseId}
           active={active}
-          hud={hud}
+          running={cameraRunning}
+          onStart={onCameraStart}
+          onStop={onCameraStop}
+          overlay={cameraOverlay}
           hideImage={hideCameraImage}
           onHideImageChange={onHideCameraImageChange}
-          onSetDone={onSetDone}
           calibrated={calibrations[exerciseId] !== undefined}
           onCalibrated={(tracker) => onCalibrated(exerciseId, tracker)}
-          largeButtons={largeButtons}
         />
       ),
     };
   }
   return {
     source: manual,
+    reviewCounts: false,
+    handsFree: false,
     controls: (
       <ManualRepControls
         source={manual}

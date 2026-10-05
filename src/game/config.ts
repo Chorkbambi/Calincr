@@ -35,6 +35,13 @@ export type ExerciseUnit = 'reps' | 'seconds';
 export type ExerciseTier = 'beginner' | 'normal' | 'advanced';
 export type Difficulty = ExerciseTier;
 
+/** Names shown for each difficulty mode (and exercise tier). Ids stay the same so saves keep working. */
+export const DIFFICULTY_NAMES: Record<Difficulty, string> = {
+  beginner: 'Beginner',
+  normal: 'Intermediate',
+  advanced: 'Expert',
+};
+
 export interface ExerciseConfig {
   id: string;
   name: string;
@@ -62,7 +69,7 @@ export const EXERCISES = [
   { id: 'crunch', name: 'Crunches', tier: 'beginner', unit: 'reps', baseXp: 5, muscles: { abs: 1.0 } },
   { id: 'knee_plank', name: 'Knee Plank', tier: 'beginner', unit: 'seconds', baseXp: 1.5, muscles: { abs: 0.7, shoulders: 0.3 } },
 
-  // Normal: classic bodyweight exercises.
+  // Intermediate (tier id 'normal'): classic bodyweight exercises.
   { id: 'pushup', name: 'Push-ups', tier: 'normal', unit: 'reps', baseXp: 10, muscles: PUSH },
   { id: 'pike_pushup', name: 'Pike Push-ups', tier: 'normal', unit: 'reps', baseXp: 11, muscles: { shoulders: 0.6, triceps: 0.3, chest: 0.1 } },
   { id: 'bench_dip', name: 'Bench Dips', tier: 'normal', unit: 'reps', baseXp: 9, muscles: { triceps: 0.6, chest: 0.2, shoulders: 0.2 } },
@@ -74,7 +81,7 @@ export const EXERCISES = [
   { id: 'leg_raise', name: 'Lying Leg Raises', tier: 'normal', unit: 'reps', baseXp: 9, muscles: { abs: 0.8, quads: 0.2 } },
   { id: 'plank', name: 'Plank', tier: 'normal', unit: 'seconds', baseXp: 2, muscles: { abs: 0.7, shoulders: 0.3 } },
 
-  // Advanced: hard variations.
+  // Expert (tier id 'advanced'): hard variations.
   { id: 'pullup', name: 'Pull-ups', tier: 'advanced', unit: 'reps', baseXp: 16, muscles: { back: 0.6, biceps: 0.4 } },
   { id: 'chinup', name: 'Chin-ups', tier: 'advanced', unit: 'reps', baseXp: 15, muscles: { biceps: 0.5, back: 0.5 } },
   { id: 'dip', name: 'Parallel Bar Dips', tier: 'advanced', unit: 'reps', baseXp: 14, muscles: { triceps: 0.5, chest: 0.3, shoulders: 0.2 } },
@@ -120,14 +127,14 @@ export const RECOVERY = {
 /** Swords sold in the shop, in order. The first one is the starting sword (free). */
 export const WEAPONS = [
   { id: 'rusty_sword', name: 'Rusty Sword', damageMultiplier: 1, price: 0 },
-  { id: 'iron_sword', name: 'Iron Sword', damageMultiplier: 1.5, price: 100 },
-  { id: 'steel_sword', name: 'Steel Sword', damageMultiplier: 2, price: 400 },
-  { id: 'knights_blade', name: "Knight's Blade", damageMultiplier: 3, price: 1_500 },
-  { id: 'runed_sword', name: 'Runed Sword', damageMultiplier: 4.5, price: 6_000 },
-  { id: 'dragonbone_sword', name: 'Dragonbone Sword', damageMultiplier: 7, price: 25_000 },
-  { id: 'sunforged_blade', name: 'Sunforged Blade', damageMultiplier: 10, price: 100_000 },
-  { id: 'starfall_sword', name: 'Starfall Sword', damageMultiplier: 15, price: 400_000 },
-  { id: 'eternal_edge', name: 'Eternal Edge', damageMultiplier: 25, price: 2_000_000 },
+  { id: 'iron_sword', name: 'Iron Sword', damageMultiplier: 1.5, price: 800 },
+  { id: 'steel_sword', name: 'Steel Sword', damageMultiplier: 2, price: 3_000 },
+  { id: 'knights_blade', name: "Knight's Blade", damageMultiplier: 3, price: 12_000 },
+  { id: 'runed_sword', name: 'Runed Sword', damageMultiplier: 4.5, price: 50_000 },
+  { id: 'dragonbone_sword', name: 'Dragonbone Sword', damageMultiplier: 7, price: 200_000 },
+  { id: 'sunforged_blade', name: 'Sunforged Blade', damageMultiplier: 10, price: 800_000 },
+  { id: 'starfall_sword', name: 'Starfall Sword', damageMultiplier: 15, price: 3_000_000 },
+  { id: 'eternal_edge', name: 'Eternal Edge', damageMultiplier: 25, price: 15_000_000 },
 ] as const;
 
 export type WeaponId = (typeof WEAPONS)[number]['id'];
@@ -176,8 +183,8 @@ export const QUEST = {
   historyDays: 365,
   /** First time doing the exercise: target per tier (reps, or seconds for holds). */
   startTarget: {
-    beginner: { reps: 12, seconds: 30 },
-    normal: { reps: 15, seconds: 40 },
+    beginner: { reps: 20, seconds: 30 },
+    normal: { reps: 20, seconds: 40 },
     advanced: { reps: 8, seconds: 30 },
   },
   /** Target = last session's total × (1 + progression), at least + minStep. */
@@ -195,10 +202,21 @@ export const QUEST = {
   maxSets: 6,
   /** Muscles still tired (best multiplier < 1): lighter day (× tiredFactor). */
   tiredFactor: 0.7,
-  minTarget: { reps: 3, seconds: 10 },
+  /** Smallest daily target per tier: a short test session must not lead to a ridiculous quest. */
+  minTarget: {
+    beginner: { reps: 10, seconds: 20 },
+    normal: { reps: 10, seconds: 20 },
+    advanced: { reps: 6, seconds: 15 },
+  },
+  /** Fewest reps (or seconds) in one set: 3 × 2 is not a workout, so fewer, bigger sets are suggested. */
+  minPerSet: {
+    beginner: { reps: 5, seconds: 15 },
+    normal: { reps: 5, seconds: 15 },
+    advanced: { reps: 3, seconds: 10 },
+  },
   /** Split into sets: [minimum total, number of sets], checked from the top. */
   sets: {
-    reps: [[30, 4], [12, 3], [6, 2], [0, 1]],
+    reps: [[40, 4], [15, 3], [8, 2], [0, 1]],
     seconds: [[90, 3], [40, 2], [0, 1]],
   },
   /** Reward on completion: bonus XP = target × baseXp × xpBonusRatio (split over the muscles, no rest multiplier). */
@@ -308,6 +326,20 @@ export const ACHIEVEMENT_REWARDS = {
 
 /** Rest timer choices offered in the app (seconds, 0 = off). */
 export const REST_TIMER_CHOICES = [0, 30, 60, 90, 120] as const;
+
+/**
+ * Workout plan picked before an exercise: N sets of M reps (or seconds). A set ends by itself when its target
+ * is reached, then the rest timer starts, then the next set: the phone can stay on the floor.
+ */
+export const WORKOUT = {
+  maxSets: 10,
+  /** Largest target of one set (reps, or seconds for holds). */
+  maxPerSet: { reps: 100, seconds: 600 },
+  /** Stepper step for holds (reps change one by one). */
+  secondsStep: 5,
+  /** Camera mode: nothing counted for this long after the first rep of a set = the set is over (the player stopped). */
+  idleEndSeconds: 20,
+} as const;
 
 /** Voice count: holds are announced every N seconds (reps are announced one by one). */
 export const VOICE = {
